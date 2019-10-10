@@ -73,7 +73,6 @@ function(session, input, output) {
     
     #outputOptions(output, "options", suspendWhenHidden = FALSE)
     
-    
     ################################################
     ## L1 Dataset Upload and Import Menu | Contingent on Options & Advanced Options loading
     ################################################
@@ -170,7 +169,7 @@ function(session, input, output) {
     ################################################
     ## Explore Dataset Tab
     ################################################
-    output$summary_data_content <- renderUI({
+    output$import_data_content <- renderUI({
         if (is.null(values$is_imported)) {
             tagList(
                 h1("Summarize dataset"),

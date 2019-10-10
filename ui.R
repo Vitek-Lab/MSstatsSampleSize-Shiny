@@ -21,11 +21,12 @@ header <- dashboardHeader(
 side <- dashboardSidebar(
     width = 300,
     sidebarMenu(id="tabs",
-                
                 menuItem("Home", tabName="home", icon = icon("home")),
-        
-                menuItem("Import data", 
-                         tabName="import_data", icon = icon("file-import"), 
+                menuItem("Import Data",
+                         tabName="import_data", icon = icon("file-import")
+                ),
+                ## Use of conditionalPanel in place of subMenuItem, ref. https://github.com/rstudio/shinydashboard/issues/86
+                conditionalPanel("input.tabs === 'import_data'", 
                          #startExpanded=TRUE,
                          div(class="custom-sidebar-output",
                              selectInput("data_format", "Select data type", 
@@ -33,13 +34,8 @@ side <- dashboardSidebar(
                                                       "Example from MSstatsSampleSize"="examples"))),
                          htmlOutput("select_files", class="custom-sidebar-output",)
                 ),
-                
-                #menuItem("Summary of Data",
-                #        tabName="summary_data", icon = icon("search")),
-                
                 menuItem("Simulate datasets", 
                         tabName="explore_simulated", icon=icon("project-diagram")),
-                
                 menuItem("Analyze the simulated datasets", 
                         tabName="analyse_simulated", icon=icon("vial"))
    )
@@ -123,7 +119,7 @@ body <- dashboardBody(
 
         Tab2 <- tabItem(
             tabName="import_data",
-            htmlOutput("summary_data_content")
+            htmlOutput("import_data_content")
         ),
 
         Tab3 <- tabItem(
