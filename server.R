@@ -130,9 +130,11 @@ function(session, input, output) {
                    "standard" = {
                      tryCatch(
                        { ## Load data from user-input filepath
-                          values$wide_data <- read.csv(input$standard_count$datapath)
-                          values$annot_data <- read.csv(input$standard_annot$datapath)
+                          values$wide_data <- read.csv(input$standard_count$datapath, check.names = FALSE, row.names = 1) # check.names set to false because R gets upset with column names starting with a number; row.names set to 1 to match matrix specification
+                          values$annot_data <- read.csv(input$standard_annot$datapath, check.names = FALSE)
                           values$dataset_name <- input$standard_count$name
+                          wide_data <<- values$wide_data
+                          annot_data <<- values$annot_data
                           values$is_imported <- TRUE
                           showNotification("Data import complete", duration=10, 
                                            closeButton = TRUE, type="message")
@@ -148,8 +150,8 @@ function(session, input, output) {
                        { ## use example file from MSstatsSampleSize
                          ## OV_SRM_train
                          ## OV_SRM_train_annotation
-                          values$wide_data <- OV_SRM_train                ## toDo : need to check
-                          values$annot_data <- OV_SRM_train_annotation     ## toDo : need to check
+                          values$wide_data <- as.data.frame(OV_SRM_train )               ## toDo : need to check
+                          values$annot_data <- as.data.frame(OV_SRM_train_annotation)     ## toDo : need to check
                           values$dataset_name <- 'Ovarian cancer SRM study'
                           values$is_imported <- TRUE
                          showNotification("Data import complete", duration=10, 
@@ -162,6 +164,19 @@ function(session, input, output) {
                     )
                 }
             )
+          # Recast wide_data into long format
+          data <- values$wide_data
+          annot <- values$annot_data
+          
+          ## change to long-format
+          data <- cbind(Protein=rownames(data), data)
+          data <- gather(data, "BioReplicate", "Abundance", 2:ncol(data))
+          
+          ## need to merge with annotation
+          data <- left_join(data, annot, by='BioReplicate')
+          
+          values$long_data <- data
+          long_data <<- values$long_data
         }
     })
     
@@ -202,7 +217,7 @@ function(session, input, output) {
                            ),
                            tabPanel("Mean-SD Plots",
                                     div(style = 'overflow-x:scroll;',
-                                        plotlyOutput("mean_sd_plot")))
+                                        plotOutput("mean_sd_plot")))
                     )
                 )
             )
@@ -222,7 +237,24 @@ function(session, input, output) {
     #})
     
     output$summary_table <- DT::renderDataTable({
-        values$summary
+        data <- values$long_data
+        summary.s <- matrix(NA,ncol=nlevels(data$Condition), nrow=3)
+        ## # of MS runs
+        msruns <- unique(data[, c("BioReplicate", "Condition")]) # Placeholder as the example dataset lacks technical replicates
+        msruns <- xtabs(~Condition, data=msruns)
+        summary.s[1,] <- msruns
+        ## # of biological replicates
+        biorep <- unique(data[, c("BioReplicate", "Condition")])
+        biorep <- xtabs(~Condition, data=biorep)
+        summary.s[2,] <- biorep
+        ## # of technical replicates
+        c.tech <- round(summary.s[1,] / summary.s[2,])
+        summary.s[3,] <- c.tech
+        colnames(summary.s) <- unique(data$Condition)
+        rownames(summary.s) <- c("# of MS runs","# of Biological Replicates", "# of Technical Replicates")
+        summary.s_debug <<- summary.s
+        
+        summary.s
     })
   
     ################################################
@@ -232,15 +264,7 @@ function(session, input, output) {
     ## Global QC Box Plot
     output$global_boxplot <- renderPlotly({
       
-        data <- values$wide_data
-        annot <- values$annot_data
-        
-        ## change to long-format
-        data <- data.frame('Protein' = rownames(data), data)
-        data <- gather(data, "BioReplicate", "Abundance", 2:ncol(data))
-        
-        ## need to merge with annotation
-        data <- left_join(data, annot, by='BioReplicate')
+        data <- values$long_data
         
         ## to get the upper limit of y-axis in box plot
         ylimup <- max(data$Abundance, rm.na=TRUE)
@@ -251,7 +275,7 @@ function(session, input, output) {
     })
   
     ## Mean-variance Plot
-    output$mean_sd_plot <- renderPlotly({
+    output$mean_sd_plot <- renderPlot({
       
         variance_estimation <- estimateVar(values$wide_data, 
                                            values$annot_data)
@@ -315,24 +339,28 @@ function(session, input, output) {
         sigma_selected <- sigma[selectedProt,]
         simulated_data <- .sampleSimulation(as.integer(vars[2]), mu_selected, sigma_selected)
   
-        values$s_prot_abundance <- t(simulated_data[["X"]])
-        values$s_sample_annotation <- simulated_data[["Y"]]
-        summary.s <- matrix(NA,ncol=nlevels(values$s_sample_annotation), nrow=1)
+        # values$s_prot_abundance <- t(simulated_data[["X"]])
+        # values$s_sample_annotation <- simulated_data[["Y"]]
+        # summary.s <- matrix(NA,ncol=nlevels(values$s_sample_annotation), nrow=1)
+        # values$summary <- summary.s
+        # summary <<- values$summary
         
-        merged<-melt(simulated_data[["X"]], value.name = "LogIntensities", varnames = c('originalRUN', 'Protein'))
-        merged$LogIntensities <- suppressWarnings(as.numeric(paste(merged$LogIntensities)))
-        values$s_groups<-data.frame("originalRUN"=1:length(simulated_data[["Y"]]), "Group"=simulated_data[["Y"]])
-        merged<-merge(merged, values$s_groups, by="originalRUN")
-        values$s_quant_data<-merged
+        
+        
+        # merged<-melt(simulated_data[["X"]], value.name = "LogIntensities", varnames = c('originalRUN', 'Protein'))
+        # merged$LogIntensities <- suppressWarnings(as.numeric(paste(merged$LogIntensities)))
+        # values$s_groups<-data.frame("originalRUN"=1:length(simulated_data[["Y"]]), "Group"=simulated_data[["Y"]])
+        # merged<-merge(merged, values$s_groups, by="originalRUN")
+        # values$s_quant_data<-merged
         
         ## # of biological replicates
-        temp <- unique(merged[, c("Group", "originalRUN")])
-        temp1 <- xtabs(~Group, data=temp)
-        summary.s[1,] <- temp1
-        
-        colnames(summary.s) <- unique(values$quant_data[["RunlevelData"]]$GROUP_ORIGINAL)
-        rownames(summary.s) <- c("# of Biological Replicates")
-        values$s_summary <- summary.s
+        # temp <- unique(merged[, c("Group", "originalRUN")])
+        # temp1 <- xtabs(~Group, data=temp)
+        # summary.s[1,] <- temp1
+        # 
+        # colnames(summary.s) <- unique(values$quant_data[["RunlevelData"]]$GROUP_ORIGINAL)
+        # rownames(summary.s) <- c("# of Biological Replicates")
+        # values$s_summary <- summary.s
         showNotification("Data processing complete", duration=10, closeButton = TRUE, type="message")
         
         tprot <- t(values$s_prot_abundance)
