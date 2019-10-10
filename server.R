@@ -145,16 +145,18 @@ function(session, input, output) {
                         }
                      )
                    },
-                   "Examples" = { 
+                   "examples" = { 
                      tryCatch(
                        { ## use example file from MSstatsSampleSize
                          ## OV_SRM_train
                          ## OV_SRM_train_annotation
-                          values$wide_data <- as.data.frame(OV_SRM_train )               ## toDo : need to check
+                          values$wide_data <- as.data.frame(OV_SRM_train)               ## toDo : need to check
                           values$annot_data <- as.data.frame(OV_SRM_train_annotation)     ## toDo : need to check
                           values$dataset_name <- 'Ovarian cancer SRM study'
+                          wide_data <<- values$wide_data
+                          annot_data <<- values$annot_data
                           values$is_imported <- TRUE
-                         showNotification("Data import complete", duration=10, 
+                          showNotification("Data import complete", duration=10, 
                                           closeButton = TRUE, type="message")
                        },
                        error = function(e) {
@@ -203,21 +205,25 @@ function(session, input, output) {
                     ## !! toDo : add small table for # bioReplicates per group
                 ),
                 fluidRow(
-                    ## todo : for what?
-                    tabBox(id="tabset1", width=12,
-                           tabPanel("Summary",
-                                    div(style = 'overflow-x:scroll;',
-                                        DT::dataTableOutput("summary_table")
-                                    )
-                           ),
-                           tabPanel("Box Plots for protein abundance distribution ",
-                                    div(style = 'overflow-x:scroll;',
-                                        plotlyOutput("global_boxplot")
-                                    )
-                           ),
-                           tabPanel("Mean-SD Plots",
-                                    div(style = 'overflow-x:scroll;',
-                                        plotOutput("mean_sd_plot")))
+                    box(
+                      width = 12,
+                      div(style = 'overflow-x:scroll;',
+                          DT::dataTableOutput("summary_table")
+                      )
+                    )
+                ),
+                fluidRow(
+                    box(
+                      width = 6,
+                      div(style = 'overflow-x:scroll;',
+                          plotlyOutput("global_boxplot")
+                      )
+                    ),
+                    box(
+                      width = 6,
+                      div(style = 'overflow-x:scroll;',
+                          plotOutput("mean_sd_plot")
+                      )
                     )
                 )
             )
