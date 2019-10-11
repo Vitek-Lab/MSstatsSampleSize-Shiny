@@ -32,7 +32,7 @@ annotation <- OV_SRM_train_annotation
 
 variance_estimation <- estimateVar(data, annotation)
 save(variance_estimation, file = "variance_estimation.rda" )
-meanSDplot(variance_estimation)
+meanSDplot(variance_estimation, address=FALSE)
 
 designSampleSizeHypothesisTesting(data = OV_SRM_train,
                                   annotation= OV_SRM_train_annotation,

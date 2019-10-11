@@ -23,8 +23,7 @@ side <- dashboardSidebar(
     sidebarMenu(id="tabs",
                 menuItem("Home", tabName="home", icon = icon("home")),
                 menuItem("Import Data",
-                         tabName="import_data", icon = icon("file-import")
-                ),
+                         tabName="import_data", icon = icon("file-import")),
                 ## Use of conditionalPanel in place of subMenuItem, ref. https://github.com/rstudio/shinydashboard/issues/86
                 conditionalPanel("input.tabs === 'import_data'", 
                          #startExpanded=TRUE,
@@ -32,8 +31,7 @@ side <- dashboardSidebar(
                              selectInput("data_format", "Select data type", 
                                          choices=list("Protein-level quantification"="standard", 
                                                       "Example from MSstatsSampleSize"="examples"))),
-                         htmlOutput("select_files", class="custom-sidebar-output",)
-                ),
+                         htmlOutput("select_files", class="custom-sidebar-output",)),
                 menuItem("Simulate datasets", 
                         tabName="explore_simulated", icon=icon("project-diagram")),
                 menuItem("Analyze the simulated datasets", 
