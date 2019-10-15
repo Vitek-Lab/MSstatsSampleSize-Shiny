@@ -197,29 +197,24 @@ function(session, input, output) {
             n_group <- length(unique(values$annot_data$Condition))
             #n_biorep <- nrow(unique(values$quant_data[["RunlevelData"]]["SUBJECT"]))
             tagList(
-                h1(paste0("Summary of dataset: ", values$dataset_name)),
+                h1(paste("Loaded Dataset: ", values$dataset_name)),
                 fluidRow(
-                    ## Preliminary check : counts of proteins, groups, ...
-                    valueBox("Proteins Quantified", value = n_prot, icon=icon("dna"), color="purple", width=6),
-                    valueBox("Groups", value = n_group, icon=icon("layer-group"), color="green", width=6)
-                    ## !! toDo : add small table for # bioReplicates per group
-                ),
-                fluidRow(
-                    box(
+                    box(title = "Summary",
                       width = 12,
-                      div(style = 'overflow-x:scroll;',
-                          DT::dataTableOutput("summary_table")
+                      tagList(
+                          DT::dataTableOutput("summary_table"),
+                          DT::dataTableOutput("condition_summary_table")
                       )
                     )
                 ),
                 fluidRow(
-                    box(
+                    box(title = "QC Box Plot",
                       width = 6,
                       div(style = 'overflow-x:scroll;',
                           plotlyOutput("global_boxplot")
                       )
                     ),
-                    box(
+                    box(title = "Mean-Variance Plot",
                       width = 6,
                       div(style = 'overflow-x:scroll;',
                           plotOutput("mean_sd_plot")
@@ -242,25 +237,32 @@ function(session, input, output) {
     #    values$sample_annotation
     #})
     
+    
     output$summary_table <- DT::renderDataTable({
+      n_prot <- length(unique(rownames(values$wide_data)))
+      n_group <- length(unique(values$annot_data$Condition))
+      summary <- data.frame("values" = c(n_prot, n_group))
+      rownames(summary) <- c("# of Proteins", "# of Groups")
+      DT::datatable(summary, options = list(dom = 't'))
+    })
+    
+    output$condition_summary_table <- DT::renderDataTable({
         data <- values$long_data
-        summary.s <- matrix(NA,ncol=nlevels(data$Condition), nrow=3)
+        condition_summary <- matrix(NA,ncol=nlevels(data$Condition), nrow=2)
         ## # of MS runs
         msruns <- unique(data[, c("BioReplicate", "Condition")]) # Placeholder as the example dataset lacks technical replicates
         msruns <- xtabs(~Condition, data=msruns)
-        summary.s[1,] <- msruns
+        condition_summary[1,] <- msruns
         ## # of biological replicates
         biorep <- unique(data[, c("BioReplicate", "Condition")])
         biorep <- xtabs(~Condition, data=biorep)
-        summary.s[2,] <- biorep
-        ## # of technical replicates
-        c.tech <- round(summary.s[1,] / summary.s[2,])
-        summary.s[3,] <- c.tech
-        colnames(summary.s) <- unique(data$Condition)
-        rownames(summary.s) <- c("# of MS runs","# of Biological Replicates", "# of Technical Replicates")
-        summary.s_debug <<- summary.s
+        condition_summary[2,] <- biorep
+
+        colnames(condition_summary) <- unique(data$Condition)
+        rownames(condition_summary) <- c("# of MS runs","# of Biological Replicates")
+        condition_summary_debug <<- condition_summary
         
-        summary.s
+        DT::datatable(condition_summary, options = list(dom = 't'))
     })
   
     ################################################
