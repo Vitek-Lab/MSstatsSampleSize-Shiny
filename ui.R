@@ -39,6 +39,7 @@ dashboardPage(
                  actionButton("import_data", "Import dataset", 
                               icon = icon("file-import"))
         ),
+        menuItem("Explore Data", tabName = "explore_data", icon = icon("tv")),
         #### Data Simulation Tab ####
         menuItem("Simulate datasets", 
                  tabName = "explore_simulated", icon = icon("project-diagram")),
@@ -58,8 +59,28 @@ dashboardPage(
         ),
         #### Import Data Tab ####
         tabItem(
-          tabName = "import_data", class = "active",
-          htmlOutput("explore_data")
+          tabName = "import_data"
+        ),
+        ##### Exploration Visuals #####
+        tabItem(
+          tabName = "explore_data",
+          h1(textOutput("dataset_name")),
+          br(),
+          fluidRow(
+            column(6, DT::dataTableOutput("sum_table")),
+            column(6, DT::dataTableOutput("cond_sum_table"))
+          ),
+          br(),
+          fluidRow(
+            box(title = "QC Box Plot",
+                width = 6,
+                plotly::plotlyOutput("global_boxplot")
+            ),
+            box(title = "Mean-Variance Plot",
+                width = 6,
+                plotOutput("mean_sd_plot")
+            )
+          )
         ),
         #### Data Simulation Tab #####
         tabItem(
