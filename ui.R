@@ -86,7 +86,18 @@ dashboardPage(
         tabItem(
           tabName = "explore_simulated",
           h1("Simulate datasets"),
-          htmlOutput("explore_simulated_content")
+          fluidRow(
+            column(2, numericInput(inputId = "n_sim", label = "Number of Simulations",
+                                   value = 5, min = 2, max = 50, step = 1)),
+            column(3, textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
+                                placeholder = "0,1,2")),
+            column(2, numericInput(inputId = "n_samp_grp", label = "Samples per group",
+                                   value = 50, min = 50, max = 1000, step = 50)),
+            column(2, numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
+                                   value = 50, min = 50, max = 1000, step = 50)),
+            column(2, selectInput(inputId = "sim_val", label = "Simulate Validation Set",
+                                  choices = c(T,F)))
+          )
         ),
         #### Analyse Simulation Tab ####
         tabItem(

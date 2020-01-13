@@ -3,7 +3,6 @@ function(session, input, output) {
   
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
-  
   #### Toggle control for sidebar ####
   observeEvent(input$data_format,{
     shinyjs::toggleElement(id = "standard_count",
@@ -30,7 +29,33 @@ function(session, input, output) {
     updateTabItems(session = session, "tabs", selected = "explore_data")
   })
   
+  #### Visualize EDA ####
+  output$dataset_name <- renderText(
+    paste("Data Set Name:",data()$dataset_name)
+  )
+  output$cond_sum_table <- DT::renderDataTable(
+    DT::datatable(data()$cond_sum_table, options = list(dom = 't'))
+  )
   
+  output$sum_table <- DT::renderDataTable(
+    DT::datatable(data()$sum_table, options = list(dom = 't'))
+  )
+  
+  output$global_boxplot <- plotly::renderPlotly(
+    data()$boxplot
+  )
+
+  output$mean_sd_plot <- renderPlot(
+    data()$meanSDplot
+  )
+  
+  
+  
+  
+  # 
+  # ################################################
+  # ################################################
+  # ## Tab 2 Simulate datasets Tab : simulateDataset()
   # ################################################
   # ################################################
   # 

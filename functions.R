@@ -92,11 +92,12 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   if(format == 'standard'){
     status(detail = 'Importing Protein Abundance file', value = 0.4,
            session = session)
-    wide <- fread(count, keepLeadingZeros = T)
-    
+    wide <- fread(count$datapath, keepLeadingZeros = T)
+    setnames(wide, 'V1', 'Protein')
     status(detail = 'Importing Annotations file', value = 0.5,
            session = session)
-    annot <- fread(annot, keepLeadingZeros = T)
+    annot <- fread(annot$datapath, keepLeadingZeros = T)
+    name <- count$name
   }else if(format == 'examples'){
     status(detail = 'Importing Data from MSstatsSampleSize Package', value = 0.5,
            session = session)
@@ -130,16 +131,15 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
 
 
 generate_plots_explore <- function(formatted_data = NULL, session = NULL){
-  
   shiny::validate(shiny::need(formatted_data, 'No Data Found to visualize'))
   status(detail = 'Creating Boxplot for Protein Abundace', value = 0.8,
          session = session)
   
   box_plot <- plotly::plot_ly(data = formatted_data$long_data[!is.na(Abundance)],
-                       y = ~Abundance, x = ~BioReplicate, color = ~Condition,
+                       y = ~log(Abundance), x = ~BioReplicate, color = ~Condition,
                        type = "box") %>%
     plotly::layout(xaxis = list(title="Biological Replicate"), 
-                   yaxis = list(title="Protein abundance"))
+                   yaxis = list(title="Log Protein abundance"))
   
   status(detail = 'Estimating Variance', value = 0.85, session = session)
   est_var <- MSstatsSampleSize::estimateVar(data = formatted_data$wide_data,
