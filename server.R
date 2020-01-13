@@ -13,9 +13,9 @@ function(session, input, output) {
   })
   
   #### Import data, action click ####
-  data <- observeEvent(input$import_data, {
+  data <- eventReactive(input$import_data, {
     withProgress(
-      show_faults(
+      data <- show_faults(
         expr = explore_data(format = input$data_format,
                             count = input$standard_count,
                             annot = input$standard_annot,
@@ -23,104 +23,14 @@ function(session, input, output) {
         session = session
       ),
     message = "Progress:", value = 0.2, detail = "Loading Data...")
-    updateTabItems(session, inputId = "tabs", selected = "import_data")
+    return(data)
   })
   
-  #### Visualize EDA ####
-  output$explore_data <- renderUI({
-    tagList(
-      fluidRow(
-        column(4, DT::dataTableOutput("sum_table")),
-        column(4, DT::dataTableOutput("cond_sum_table"))
-      ),
-      ##### Exploration Visuals #####
-      fluidRow(
-        box(title = "QC Box Plot",
-            width = 6,
-            div(style = 'overflow-x:scroll;',
-                plotly::plotlyOutput("global_boxplot")
-            )
-        ),
-        box(title = "Mean-Variance Plot",
-            width = 6,
-            div(style = 'overflow-x:scroll;',
-                plotOutput("mean_sd_plot")
-            )
-        )
-      )
-    )
+  observeEvent(input$import_data,{
+    updateTabItems(session = session, "tabs", selected = "explore_data")
   })
-  output$cond_sum_table <- DT::renderDataTable(
-    DT::datatable(data()$cond_sum_table, selection = "none",
-                  options = list(dom = 't'))
-  )
   
-  output$sum_table <- DT::renderDataTable(
-    browser(),
-    data()$sum_table
-  )
   
-  ################################################
-  # L1 Explore Dataset / Data Tables
-  ################################################
-  # output$summary_table <- DT::renderDataTable({
-  #   n_prot <- length(unique(rownames(values$wide_data)))
-  #   n_group <- length(unique(values$annot_data$Condition))
-  #   summary <- data.frame("values" = c(n_prot, n_group))
-  #   rownames(summary) <- c("# of Proteins", "# of Groups")
-  #   DT::datatable(summary, options = list(dom = 't'))
-  # })
-  # 
-  # output$condition_summary_table <- DT::renderDataTable({
-  #   data <- values$long_data
-  #   condition_summary <- matrix(NA,ncol=nlevels(data$Condition), nrow=2)
-  #   ## # of MS runs
-  #   msruns <- unique(data[, c("BioReplicate", "Condition")]) # Placeholder as the example dataset lacks technical replicates
-  #   msruns <- xtabs(~Condition, data=msruns)
-  #   condition_summary[1,] <- msruns
-  #   ## # of biological replicates
-  #   biorep <- unique(data[, c("BioReplicate", "Condition")])
-  #   biorep <- xtabs(~Condition, data=biorep)
-  #   condition_summary[2,] <- biorep
-  #   
-  #   colnames(condition_summary) <- unique(data$Condition)
-  #   rownames(condition_summary) <- c("# of MS runs","# of Biological Replicates")
-  #   condition_summary_debug <<- condition_summary
-  #   
-  #   DT::datatable(condition_summary, options = list(dom = 't'))
-  # })
-  # 
-  # ################################################
-  # # L1 Explore Dataset / Plots
-  # ################################################
-  # 
-  # ## Global QC Box Plot
-  # output$global_boxplot <- renderPlotly({
-  #   
-  #   data <- values$long_data
-  #   
-  #   ## to get the upper limit of y-axis in box plot
-  #   ylimup <- max(data$Abundance, rm.na=TRUE)
-  #   
-  #   plot_ly(data, y=~Abundance, x=~BioReplicate, color=~Condition, type = "box") %>%
-  #     layout(xaxis=list(title="Biological Replicate"), 
-  #            yaxis=list(range = c(0, ylimup+2), title="Protein abundance")) ## not sure about log scale
-  # })
-  # 
-  # ## Mean-variance Plot
-  # output$mean_sd_plot <- renderPlot({
-  #   
-  #   variance_estimation <- estimateVar(values$wide_data, 
-  #                                      values$annot_data)
-  #   ## In order not to save it as pdf
-  #   meanSDplot(variance_estimation, address=FALSE)
-  #   
-  # })
-  # 
-  # 
-  # ################################################
-  # ################################################
-  # ## Tab 2 Simulate datasets Tab : simulateDataset()
   # ################################################
   # ################################################
   # 
