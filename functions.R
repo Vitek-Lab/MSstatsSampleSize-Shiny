@@ -200,19 +200,4 @@ meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size 
 
 #### Data Simulation ###
 
-simulate_gird <- function(data = NULL, n_protein = 10, sample_inc = 20, n_sample = 10, protein){
-  
-  uniq_prots <- data$long_data[,unique(Protein)]
-  protein_desc <- 1/n_protein
-  m_prot <- floor(length(uniq_prots) * protein_desc)
-  protein_num <- seq.int(from = m_prot, to = length(uniq_prots), by = m_prot)
-  
-  n_groups <- length(data$annot_data[,unique(Condition)])
-  train_size <- seq.int(from = sample_inc, to = sample_inc * n_sample,
-                        length.out = n_sample)
-  train_size <- train_size * n_groups
-  
-  df <- as.data.table(expand.grid(train_size,protein_num))
-  df[, sim := Var1 * Var2]
-  return(df)
-}
+simulate_grid <- function(data, session = NULL){}

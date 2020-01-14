@@ -49,8 +49,37 @@ function(session, input, output) {
     data()$meanSDplot
   )
   
+  #### Toggle control for simulate data tab ####
+  observeEvent(input$exp_fc,{
+    shinyjs::toggleElement(id = "diff_prot",
+                           condition = input$exp_fc != "data")
+  })
   
+  observeEvent(input$sel_sim_prot,{
+    shinyjs::toggleElement(id = "prot_prop",
+                           condition = input$sel_sim_prot == "proportion")
+    shinyjs::toggleElement(id = "prot_num",
+                           condition = input$sel_sim_prot != "proportion")
+  })
   
+  observeEvent(input$sim_data,{
+    withProgress(
+      show_faults(
+        expr = simulate_grid(data = data(),
+                             num_simulation = input$n_sim,
+                             expected_FC = input$exp_fc,
+                             list_diff_proteins = input$diff_prot,
+                             sel_simulated_proteins = input$sel_sim_prot,
+                             prot_proportion = input$prot_prop,
+                             prot_number = input$prot_num,
+                             samples_per_group = input$n_samp_grp,
+                             sim_valid = input$sim_val,
+                             valid_samples_per_grp = input$n_val_samp_grp,
+                             session = session),
+        session = session
+      ),
+    message = "Progress:", value = 0.2, detail = "Simulating Data...")
+  })
   
   # 
   # ################################################

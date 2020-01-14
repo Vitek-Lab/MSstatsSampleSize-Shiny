@@ -90,14 +90,27 @@ dashboardPage(
             column(2, numericInput(inputId = "n_sim", label = "Number of Simulations",
                                    value = 5, min = 2, max = 50, step = 1)),
             column(3, textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
-                                placeholder = "0,1,2")),
+                                value = "data", placeholder = "0,1,2")),
+            column(2, textInput(inputId = "diff_prot", label = "List Diff Protein",
+                                value = NULL)),
+            column(2, selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
+                                  choices = c("proportion", "numbers"),
+                                  selected = "proportion")),
+            column(2, numericInput(inputId = "prot_prop", label = "Protein Proportion",
+                                   value = 1, min = 0, max = 1, step = 0.01)),
+            column(2, numericInput(inputId = "prot_num", label = "Protein Number",
+                                   value = 1000, max = 1000, min = 25))
+          ),
+          fluidRow(
             column(2, numericInput(inputId = "n_samp_grp", label = "Samples per group",
                                    value = 50, min = 50, max = 1000, step = 50)),
             column(2, numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
                                    value = 50, min = 50, max = 1000, step = 50)),
             column(2, selectInput(inputId = "sim_val", label = "Simulate Validation Set",
-                                  choices = c(T,F)))
-          )
+                                  choices = c(T,F), selected = F))
+          ),
+          actionButton(inputId = "sim_data", label = "Simulate Data",
+                       icon =  icon("project-diagram"))
         ),
         #### Analyse Simulation Tab ####
         tabItem(
