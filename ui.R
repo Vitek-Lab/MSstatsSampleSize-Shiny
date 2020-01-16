@@ -66,11 +66,13 @@ dashboardPage(
           tabName = "explore_data",
           h1(textOutput("dataset_name")),
           br(),
+          #### Summary Tables ####
           fluidRow(
             column(6, DT::dataTableOutput("sum_table")),
             column(6, DT::dataTableOutput("cond_sum_table"))
           ),
           br(),
+          #### Box plots and HeatMap ####
           fluidRow(
             box(title = "QC Box Plot",
                 width = 6,
@@ -86,17 +88,20 @@ dashboardPage(
         tabItem(
           tabName = "explore_simulated",
           h1("Simulate datasets"),
+          ##### Checkboxes for file Input and set seed options ####
           fluidRow(
             column(3, checkboxInput(inputId = "upload_params",
                                     label = "Upload Simulation Parameters from csv")),
             column(3, checkboxInput(input = "set_seed",
                                     label = "Set Seed value 1212"))
           ),
+          #### File Input to upload a simulation parameter csv ####
           fileInput(input = "param_input", label = "Upload Parameters in specified format",
                     multiple = F, accept = c("text/csv",
                                              "text/comma-separated-values,text/plain",
                                              ".csv", "text/tab-separated-values", ".tsv")),
           fluidRow(
+            #### Box to input simulation parameters from the dashboard ######
             box(id = "param_box",
                 width = 3,
                 h4("Parameters For Simulating DataSets"),
@@ -109,7 +114,7 @@ dashboardPage(
                 textInput(inputId = "diff_prot", label = "List Diff Protein",
                           value = NULL),
                 selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
-                            choices = c("proportion", "numbers"),
+                            choices = c("proportion", "number"),
                             selected = "proportion"),
                 numericInput(inputId = "prot_prop", label = "Protein Proportion",
                              value = 1, min = 0, max = 1, step = 0.01),
@@ -124,9 +129,11 @@ dashboardPage(
                 actionButton(inputId = "simulate", label = "Simulate Data",
                              icon =  icon("project-diagram"))
             ),
+            #### Simulation details section #####
             box(title = "Simulated Datasets",
                 width = 9,
                 fluidRow(
+                  ##### Select individual simulation, previous and next buttons #####
                   column(4, selectInput(inputId = "simulations", label = "Simulations", choices = NULL)),
                   column(2, actionButton(inputId = "back", label = "Previous",
                                          icon = icon("arrow-left"),

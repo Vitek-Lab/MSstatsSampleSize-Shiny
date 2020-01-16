@@ -80,6 +80,7 @@ function(session, input, output) {
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
+    validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress(
       data <- show_faults(
         expr = simulate_grid(data = data()$wide_data,
@@ -103,6 +104,7 @@ function(session, input, output) {
   
   #### Toggle Switch for previous/next/download buttons, updates select input ####
   observeEvent(input$simulate, {
+    validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     sim_choices <<- sprintf("Simulation %s", seq(1, input$n_sim))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
                       choices = sim_choices)
@@ -129,7 +131,11 @@ function(session, input, output) {
   
   #### Backend for download all plots ####
   observeEvent(input$download_pca,{
-    MSstatsSampleSize::designSampleSizePCAplot(simulations())
+    showNotification(sprintf("Beginning to Plot PCA for %s Simulations",
+                             length(sim_choices)), duration = 5, type = 'message',
+                     session = session)
+    show_faults(expr = MSstatsSampleSize::designSampleSizePCAplot(simulations()),
+                session = session)
     showNotification(sprintf("Plots Downloaded at: '%s'", getwd()), duration = 10,
                      session = session, type = "message")
   })
@@ -138,8 +144,11 @@ function(session, input, output) {
   output$pca_plot <- renderPlot(
     if(!is.null(simulations())){
       p <- gsub(" ", "", tolower(input$simulations))
-      MSstatsSampleSize::designSampleSizePCAplot(simulations(), which.PCA = p,
-                                               address = F)
+      show_faults(
+        expr = MSstatsSampleSize::designSampleSizePCAplot(simulations(),
+                                                          which.PCA = p,
+                                                          address = F),
+        session = session)
     }else{
       h1('No Simulations Found')
     }
@@ -147,38 +156,7 @@ function(session, input, output) {
   
   
   # 
-  # ################################################
-  # ################################################
-  # ## Tab 2 Simulate datasets Tab : simulateDataset()
-  # ################################################
-  # ################################################
-  # 
-  # output$explore_simulated_content<-renderUI({
-  #   if (is.null(values$is_imported)) {
-  #     tags$b("Please use the 'Import Data' menu to import a proteome dataset.")
-  #   } else {
-  #     tagList(
-  #       fluidRow(
-  #         box(title = paste("Selected Dataset:",values$selected_dataset_name), 
-  #             width=9,
-  #             htmlOutput("inspect_simulated")
-  #         ),
-  #         box(title = "Simulated Datasets",
-  #             width = 3, 
-  #             plotlyOutput("simulated_grid"),
-  #             br(),
-  #             h3("Parameters", class="custom-box-title"),
-  #             numericInput("n_sample", label="Number of Different Sample Sizes to Simulate", value=5),
-  #             numericInput("sample_incr", label="Step Size Between Simulated Sample Sizes", value=20),
-  #             numericInput("n_protein", label="Number of Different Protein Counts to Simulate", value=5)
-  #         )
-  #       )
-  #     )
-  #   }
-  # })
-  # 
-  # outputOptions(output, "explore_simulated_content", suspendWhenHidden = FALSE)
-  # 
+ 
   # ################################################
   # ## L1 Explore Simulated Data / Process and generate tabset for specified simulated dataset
   # ################################################
