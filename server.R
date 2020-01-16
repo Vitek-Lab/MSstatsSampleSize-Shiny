@@ -79,9 +79,9 @@ function(session, input, output) {
   })
   
   #### Simulate Data Button Click ####
-  observeEvent(input$simulate,{
+  simulations <- eventReactive(input$simulate,{
     withProgress(
-      show_faults(
+      data <- show_faults(
         expr = simulate_grid(data = data()$wide_data,
                              annot = data()$annot_data,
                              num_simulation = input$n_sim,
@@ -97,8 +97,54 @@ function(session, input, output) {
                              session = session),
         session = session
       ),
-    message = "Progress:", value = 0.2, detail = "Simulating Data...")
+      message = "Progress:", value = 0.2, detail = "Simulating Data...")
+    return(data)
   })
+  
+  #### Toggle Switch for previous/next/download buttons, updates select input ####
+  observeEvent(input$simulate, {
+    sim_choices <<- sprintf("Simulation %s", seq(1, input$n_sim))
+    updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
+                      choices = sim_choices)
+    shinyjs::toggleState(id = "fwd", condition = length(sim_choices) > 1)
+    shinyjs::toggleState(id = "back", condition = length(sim_choices) > 1)
+  })
+  
+  #### Backend for previous and next buttons ####
+  observeEvent(input$back, {
+    curr <- which(sim_choices == input$simulations)
+    if(curr > 1){
+      updateSelectInput(session = session, "simulations",
+                        choices = sim_choices, selected = sim_choices[curr - 1])
+    }
+  })
+  
+  observeEvent(input$fwd,{
+    curr <- which(sim_choices == input$simulations)
+    if(curr >= 1){
+      updateSelectInput(session = session, "simulations",
+                        choices = sim_choices, selected = sim_choices[curr + 1])
+    }
+  })
+  
+  #### Backend for download all plots ####
+  observeEvent(input$download_pca,{
+    MSstatsSampleSize::designSampleSizePCAplot(simulations())
+    showNotification(sprintf("Plots Downloaded at: '%s'", getwd()), duration = 10,
+                     session = session, type = "message")
+  })
+  
+  #### Render PCA plots for selected simulations ####
+  output$pca_plot <- renderPlot(
+    if(!is.null(simulations())){
+      p <- gsub(" ", "", tolower(input$simulations))
+      MSstatsSampleSize::designSampleSizePCAplot(simulations(), which.PCA = p,
+                                               address = F)
+    }else{
+      h1('No Simulations Found')
+    }
+  )
+  
   
   # 
   # ################################################

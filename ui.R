@@ -101,7 +101,7 @@ dashboardPage(
                 width = 3,
                 h4("Parameters For Simulating DataSets"),
                 numericInput(inputId = "n_sim", label = "Number of Simulations",
-                             value = 5, min = 2, max = 50, step = 1),
+                             value = 10, min = 10, max = 500, step = 1),
                 textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
                           value = "data", placeholder = "0,1,2"),
                 textInput(inputId = "exp_fc_name", label = "Names of Expected Fold Change",
@@ -126,7 +126,21 @@ dashboardPage(
             ),
             box(title = "Simulated Datasets",
                 width = 9,
-                selectInput(inputId = "simulations", label = "Simulations", choices = NULL),
+                fluidRow(
+                  column(4, selectInput(inputId = "simulations", label = "Simulations", choices = NULL)),
+                  column(2, actionButton(inputId = "back", label = "Previous",
+                                         icon = icon("arrow-left"),
+                                         style = "margin-top: 25px;",
+                                         width = '100px')),
+                  column(2, actionButton(inputId = "fwd", label = "Next",
+                                         icon = icon("arrow-right"),
+                                         style = "margin-top: 25px;",
+                                         width = '100px')),
+                  column(2, actionButton(input = "download_pca", label = "Download All",
+                                         icon = icon("download"),
+                                         style = "margin-top: 25px;",
+                                         width = '150px'))
+                ),
                 plotOutput("pca_plot")
             )
           )
