@@ -198,7 +198,7 @@ meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size 
   return(meansdplot)
 }
 
-#### Data Simulation ###
+#### Data Simulation ####
 
 simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_name,
                           list_diff_proteins, sel_simulated_proteins, 
@@ -220,6 +220,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
   }
   
+  status(detail = "Running Simulation", value = 0.5, session = session)
   sim <- MSstatsSampleSize::simulateDataset(data = data,
                                             annotation = annot,
                                             num_simulations = num_simulation,
