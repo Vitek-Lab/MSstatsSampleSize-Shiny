@@ -200,4 +200,36 @@ meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size 
 
 #### Data Simulation ###
 
-simulate_grid <- function(data, session = NULL){}
+simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_name,
+                          list_diff_proteins, sel_simulated_proteins, 
+                          prot_proportion, prot_number, samples_per_group, sim_valid,
+                          valid_samples_per_grp, session = NULL){
+  
+  status(detail = "Setting Up Data Simulation Runs", value = 0.1, session = session)
+  
+  if(exp_fc != 'data'){
+    status(detail = "Extracting Fold Change Informations", value = 0.15, session = session)
+    diff_prots <- unlist(strsplit(list_diff_proteins, ","))
+    exp_fc <- as.numeric(unlist(strsplit(exp_fc,",")))
+    names(exp_fc) <- unlist(strsplit(fc_name, ","))
+  } else{
+    diff_prots <- NULL
+  }
+  
+  if(sim_valid){
+    status(detail = "Validation Simulation requested", value = 0.2, session = session)
+  }
+  
+  sim <- MSstatsSampleSize::simulateDataset(data = data,
+                                            annotation = annot,
+                                            num_simulations = num_simulation,
+                                            expected_FC = exp_fc,
+                                            list_diff_proteins =  diff_prots,
+                                            select_simulated_proteins = sel_simulated_proteins,
+                                            protein_proportion = prot_proportion,
+                                            protein_number = prot_number,
+                                            samples_per_group = samples_per_group,
+                                            simulate_valid = as.logical(sim_valid),
+                                            valid_samples_per_group = valid_samples_per_grp)
+  
+}

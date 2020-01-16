@@ -34,11 +34,13 @@ function(session, input, output) {
     paste("Data Set Name:",data()$dataset_name)
   )
   output$cond_sum_table <- DT::renderDataTable(
-    DT::datatable(data()$cond_sum_table, options = list(dom = 't'))
+    DT::datatable(data()$cond_sum_table, options = list(dom = 't'),
+                  selection = 'none')
   )
   
   output$sum_table <- DT::renderDataTable(
-    DT::datatable(data()$sum_table, options = list(dom = 't'))
+    DT::datatable(data()$sum_table, options = list(dom = 't'),
+                  selection = 'none')
   )
   
   output$global_boxplot <- plotly::renderPlotly(
@@ -53,8 +55,10 @@ function(session, input, output) {
   observeEvent(input$exp_fc,{
     shinyjs::toggleElement(id = "diff_prot",
                            condition = input$exp_fc != "data")
+    shinyjs::toggleElement(id = "exp_fc_name",
+                           condition = input$exp_fc != "data")
   })
-  
+
   observeEvent(input$sel_sim_prot,{
     shinyjs::toggleElement(id = "prot_prop",
                            condition = input$sel_sim_prot == "proportion")
@@ -62,12 +66,27 @@ function(session, input, output) {
                            condition = input$sel_sim_prot != "proportion")
   })
   
-  observeEvent(input$sim_data,{
+  observeEvent(input$sim_val,{
+    shinyjs::toggleElement(id = "n_val_samp_grp",
+                           condition = input$sim_val == T)
+  })
+  
+  observeEvent(input$upload_params, {
+    shinyjs::toggleElement(id = "param_input",
+                           condition = input$upload_params == T)
+    shinyjs::toggleElement(id = "param_box",
+                           condition = input$upload_params != T)
+  })
+  
+  #### Simulate Data Button Click ####
+  observeEvent(input$simulate,{
     withProgress(
       show_faults(
-        expr = simulate_grid(data = data(),
+        expr = simulate_grid(data = data()$wide_data,
+                             annot = data()$annot_data,
                              num_simulation = input$n_sim,
-                             expected_FC = input$exp_fc,
+                             exp_fc = input$exp_fc,
+                             fc_name = input$exp_fc_name,
                              list_diff_proteins = input$diff_prot,
                              sel_simulated_proteins = input$sel_sim_prot,
                              prot_proportion = input$prot_prop,

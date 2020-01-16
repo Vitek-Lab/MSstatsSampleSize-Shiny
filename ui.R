@@ -11,7 +11,7 @@ dashboardPage(
     #### SideBar ####
     sidebar =  dashboardSidebar(
       shinyjs::useShinyjs(),
-      width = 300,
+      width = 230,
       sidebarMenu(
         id="tabs",
         ##### Home Tab ####
@@ -87,30 +87,49 @@ dashboardPage(
           tabName = "explore_simulated",
           h1("Simulate datasets"),
           fluidRow(
-            column(2, numericInput(inputId = "n_sim", label = "Number of Simulations",
-                                   value = 5, min = 2, max = 50, step = 1)),
-            column(3, textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
-                                value = "data", placeholder = "0,1,2")),
-            column(2, textInput(inputId = "diff_prot", label = "List Diff Protein",
-                                value = NULL)),
-            column(2, selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
-                                  choices = c("proportion", "numbers"),
-                                  selected = "proportion")),
-            column(2, numericInput(inputId = "prot_prop", label = "Protein Proportion",
-                                   value = 1, min = 0, max = 1, step = 0.01)),
-            column(2, numericInput(inputId = "prot_num", label = "Protein Number",
-                                   value = 1000, max = 1000, min = 25))
+            column(3, checkboxInput(inputId = "upload_params",
+                                    label = "Upload Simulation Parameters from csv")),
+            column(3, checkboxInput(input = "set_seed",
+                                    label = "Set Seed value 1212"))
           ),
+          fileInput(input = "param_input", label = "Upload Parameters in specified format",
+                    multiple = F, accept = c("text/csv",
+                                             "text/comma-separated-values,text/plain",
+                                             ".csv", "text/tab-separated-values", ".tsv")),
           fluidRow(
-            column(2, numericInput(inputId = "n_samp_grp", label = "Samples per group",
-                                   value = 50, min = 50, max = 1000, step = 50)),
-            column(2, numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
-                                   value = 50, min = 50, max = 1000, step = 50)),
-            column(2, selectInput(inputId = "sim_val", label = "Simulate Validation Set",
-                                  choices = c(T,F), selected = F))
-          ),
-          actionButton(inputId = "sim_data", label = "Simulate Data",
-                       icon =  icon("project-diagram"))
+            box(id = "param_box",
+                width = 3,
+                h4("Parameters For Simulating DataSets"),
+                numericInput(inputId = "n_sim", label = "Number of Simulations",
+                             value = 5, min = 2, max = 50, step = 1),
+                textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
+                          value = "data", placeholder = "0,1,2"),
+                textInput(inputId = "exp_fc_name", label = "Names of Expected Fold Change",
+                          value = NULL),
+                textInput(inputId = "diff_prot", label = "List Diff Protein",
+                          value = NULL),
+                selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
+                            choices = c("proportion", "numbers"),
+                            selected = "proportion"),
+                numericInput(inputId = "prot_prop", label = "Protein Proportion",
+                             value = 1, min = 0, max = 1, step = 0.01),
+                numericInput(inputId = "prot_num", label = "Protein Number",
+                             value = 1000, max = 1000, min = 25),
+                numericInput(inputId = "n_samp_grp", label = "Samples per group",
+                             value = 50, min = 50, max = 1000, step = 50),
+                selectInput(inputId = "sim_val", label = "Simulate Validation Set",
+                            choices = c(T,F), selected = F),
+                numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
+                             value = 50, min = 50, max = 1000, step = 50),
+                actionButton(inputId = "simulate", label = "Simulate Data",
+                             icon =  icon("project-diagram"))
+            ),
+            box(title = "Simulated Datasets",
+                width = 9,
+                selectInput(inputId = "simulations", label = "Simulations", choices = NULL),
+                plotOutput("pca_plot")
+            )
+          )
         ),
         #### Analyse Simulation Tab ####
         tabItem(
