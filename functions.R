@@ -204,7 +204,6 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
                           list_diff_proteins, sel_simulated_proteins, 
                           prot_proportion, prot_number, samples_per_group, sim_valid,
                           valid_samples_per_grp, session = NULL){
-  
   status(detail = "Setting Up Data Simulation Runs", value = 0.1, session = session)
   
   if(exp_fc != 'data'){
@@ -216,22 +215,56 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
     diff_prots <- NULL
   }
   
+  status(detail = "Extracting Number of Samples Information", value = 0.2, session = session)
+  samp <- unlist(strsplit(samples_per_group, ','))
+  
   if(sim_valid){
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
   }
   
   status(detail = "Running Simulation", value = 0.5, session = session)
-  sim <- MSstatsSampleSize::simulateDataset(data = data,
-                                            annotation = annot,
-                                            num_simulations = num_simulation,
-                                            expected_FC = exp_fc,
-                                            list_diff_proteins =  diff_prots,
-                                            select_simulated_proteins = sel_simulated_proteins,
-                                            protein_proportion = prot_proportion,
-                                            protein_number = prot_number,
-                                            samples_per_group = samples_per_group,
-                                            simulate_valid = as.logical(sim_valid),
-                                            valid_samples_per_group = valid_samples_per_grp)
+  
+  data_mat <- as.matrix(data[,-1])
+  rownames(data_mat) <- data$Protein
+  
+  sim <- list()
+  for(i in samp){
+    sim[[i]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
+                                                   annotation = annot,
+                                                   num_simulations = num_simulation,
+                                                   expected_FC = exp_fc,
+                                                   list_diff_proteins =  diff_prots,
+                                                   select_simulated_proteins = sel_simulated_proteins,
+                                                   protein_proportion = prot_proportion,
+                                                   protein_number = prot_number,
+                                                   samples_per_group = as.numeric(i),
+                                                   simulate_valid = as.logical(sim_valid),
+                                                   valid_samples_per_group = valid_samples_per_grp)
+  }
+  
   status(detail = "Simulation Complete", value = 0.9, session = session)
   return(sim)
 }
+
+#### Classification #####
+
+sample_size_classification <- function(n_samp, sim_data, classifier, session = NULL){
+  samp <- unlist(strsplit(n_samp,','))
+  df <- data.table(Parameter = c("Sample Size", "Pred Accuracy", "Feature Importance"),
+                   Value = c(NA, NA, NA))
+  resi <- f_imp <- pred_acc <- list()
+  
+  for(i in seq_along(samp)){
+    val <- i/length(samp)
+    status(detail = sprintf("Classifying Sample Size %s of %s", i, length(samp)),
+           session = session, value = val)
+    res <- MSstatsSampleSize::designSampleSizeClassification(
+      simulations = sim_data[[samp[i]]], classifier = classifier, parallel = F 
+    )
+    resi[[as.character(samp[i])]] <- res
+    f_imp[[as.character(samp[i])]] <- res$feature_importance
+    pred_acc[[as.character(samp[i])]] <- res$predictive_accuracy
+  }
+  
+  return(list('res' = resi, 'samp' = as.numeric(samp)))
+  }
