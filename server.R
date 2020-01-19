@@ -4,6 +4,7 @@ function(session, input, output) {
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
   #### Toggle control for sidebar ####
+  # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
     shinyjs::toggleElement(id = "standard_count",
                            condition = input$data_format == "standard")
@@ -24,7 +25,7 @@ function(session, input, output) {
     message = "Progress:", value = 0.2, detail = "Loading Data...")
     return(data)
   })
-  
+  #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
     updateTabItems(session = session, "tabs", selected = "explore_data")
   })
@@ -33,20 +34,21 @@ function(session, input, output) {
   output$dataset_name <- renderText(
     paste("Data Set Name:",data()$dataset_name)
   )
+  # Condition Summary Table
   output$cond_sum_table <- DT::renderDataTable(
     DT::datatable(data()$cond_sum_table, options = list(dom = 't'),
                   selection = 'none')
   )
-  
+  # Data Summary Table
   output$sum_table <- DT::renderDataTable(
     DT::datatable(data()$sum_table, options = list(dom = 't'),
                   selection = 'none')
   )
-  
+  # Boxplot for Proteins
   output$global_boxplot <- plotly::renderPlotly(
     data()$boxplot
   )
-
+  # Mean and Standard Deviation Plot
   output$mean_sd_plot <- renderPlot(
     data()$meanSDplot
   )
@@ -165,29 +167,74 @@ function(session, input, output) {
  
   
   #### Run Classification #####
+  
+  observeEvent(input$use_h2o, {
+    shinyjs::toggleElement(id = "model_config", condition = input$use_h2o == T)
+    shinyjs::toggleElement(id = "p_imp", condition = input$use_h2o != T)
+    shinyjs::toggleElement(id = "pred_acc", condition = input$use_h2o != T)
+  })
+  
+  observeEvent(input$classifier, {
+    shinyjs::toggleElement(id = "stop_metric",
+                           condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
+    shinyjs::toggleElement(id = "nfolds",
+                           condition = (input$use_h2o == T && input$classifier == "rf"))
+    shinyjs::toggleElement(id = "f_assignment",
+                           condition = (input$use_h2o == T && input$classifier %in% c("rf", "naive_bayes")))
+    shinyjs::toggleElement(id = "iters",
+                           condition = (input$use_h2o == T && input$classifier == "svmLinear"))
+    shinyjs::toggleElement(id = "link",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "family",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "solver",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "laplace",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+    shinyjs::toggleElement(id = "eps_sdev",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+    shinyjs::toggleElement(id = "min_sdev",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+  })
+  
   classification <- eventReactive(input$run_model,{
     withProgress(
-      classification <- show_faults(
-        sample_size_classification(n_samp = input$n_samp_grp,
-                                          sim_data = simulations(),
-                                          classifier = input$classifier,
-                                          session = session),
-        session = session
+      show_faults(
+        run_classification(sim = simulations(), inputs = input, session = session)
       ),
       message = "Progress:", value = 0.2, detail = "Training")
   })
   
-  output$importance_plot <- renderPlot(
+  observeEvent(input$run_model,{
+    #browser()
+    withProgress(
+      show_faults(
+        run_classification(sim = simulations(), inputs = input, session = session)
+      ),
+      message = "Progress:", value = 0.2, detail = "Training"
+      )
+  })
+  
+  output$importance_plot <- renderPlot({
+    req(!input$use_h2o)
     MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
                                                            classification()$samp,
                                                            predictive_accuracy_plot = F,
                                                            address = F)
-  )
-  output$acc_plot <- renderPlot(
+  })
+  output$acc_plot <- renderPlot({
+    req(!input$use_h2o)
     MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
                                                            classification()$samp,
                                                            protein_importance_plot = F,
                                                            address = F)
-  )
+  })
+  
+  observeEvent(input$download_models, {
+    fileName <- sprintf("Models_%s_%s.rds", input$classifier, format(Sys.time(),"%Y%m%d%H%M%S"))
+    saveRDS(classification(), fileName)
+    showNotification(sprintf("File Downloaded at %s --- File Name %s", getwd(), fileName),
+                     duration = 20, type = 'message')
+  })
   
 }

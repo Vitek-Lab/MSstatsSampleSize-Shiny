@@ -164,13 +164,44 @@ dashboardPage(
                                  width = '100px')),
           column(2, actionButton(inputId = "download_models", label = "Download Models",
                                  style = "margin-top: 25px;",
-                                 width = '150px'))
+                                 width = '150px')),
+          column(2, checkboxInput(inputId = "use_h2o", label = "Use H2O Package"))
         ),
-        box(title = "Protein Importance",
+        fluidRow(
+          box(id = "model_config",
+              width = 3,
+              selectInput(inputId = "stop_metric", label = "Stopping Metric",
+                          choices = STOPPING_METRIC),
+              numericInput(inputId = "nfolds", label = "N-Folds", value = 2, min = 2,
+                           max = 100, step = 1),
+              selectInput(inputId = "f_assignment", label = "Fold Assignment",
+                          choices = FOLD_ASSIGNMENT),
+              numericInput(inputId = "iters", label = "Iterations", value = 200,
+                           min = 1, max = 1000, step = 10),
+              selectInput(inputId = "family", label = "Family", choices = FAMILY),
+              selectInput(inputId = "link", label = "Link", choices = LINK),
+              selectInput(inputId = "solver", label = "Solver", choices = SOLVER),
+              #selectInput(inputId = "dist", label = "Distribution", choices = DISTRIBUTION),
+              sliderInput(inputId = "laplace", label = "Laplace", min = 0, max = 1,
+                          value = 0),
+              sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold", min = 0, max = 1,
+                          step = 0.001, value = 0.01),
+              sliderInput(inputId = "min_sdev", label = "Minimum SD", min = 0.01,
+                          value = 0.01, max = 1)
+          ),
+          box(id = "model_viz",
+              width = 9,
+              selectInput(inputId = "models_c", label = "Select Model", choices = NULL),
+              plotOutput("model_vis")
+          )
+        ),
+        box(id ="p_imp",
+            title = "Protein Importance",
             width = 12,
             plotOutput('importance_plot')
         ),
-        box(title = "Predictive Accuracy",
+        box(id = "pred_acc",
+            title = "Predictive Accuracy",
             width = 12,
             plotOutput('acc_plot')
         )

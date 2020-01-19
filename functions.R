@@ -268,3 +268,167 @@ sample_size_classification <- function(n_samp, sim_data, classifier, session = N
   
   return(list('res' = resi, 'samp' = as.numeric(samp)))
   }
+
+
+####### H2o Application for classification #######
+
+ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC",
+                            seed = -1, nfolds = 10, fold_assignment = "AUTO", iters = 200,
+                            alpha = 0, family, solver, link, min_sdev, laplace, eps,
+                            session = NULL){
+  
+  samp <- unlist(strsplit(n_samp,','))
+  models <- list()
+  status(detail = "Getting parameters for H2O", value = 0.1, session = session)
+  config <- h2o_config()
+  status(detail = "Initiating H2O Cluster", value = 0.1 , session = session)
+  h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
+                log_dir = config$log_dir, log_level = config$log_level)
+  # shiny::showNotification(sprintf("H2O Logs stored at %s", config$log_dir),
+  #                         session = session, arg = "message")
+  # 
+  for(i in seq_along(samp)){
+    val <- i/length(samp) - 0.1
+    # shiny::showNotification(sprintf("Classifying Sample %s of %s", i, length(samp)),
+    #                         session = session, type = 'message')
+    status(detail = sprintf("Classifying Sample %s of %s", i, length(samp)),
+           session = session, value = val)
+    
+    valid_x <- sim_data[[i]]$valid_X
+    valid_y <- sim_data[[i]]$valid_Y
+    valid_x <- as.data.table(valid_x, keep.rownames = T)
+    valid_x <- data.table(valid_x, condition =  valid_y)
+    valid <- h2o::as.h2o(valid_x)
+    train_x_list <- sim_data[[i]]$simulation_train_Xs 
+    train_y_list = sim_data[[i]]$simulation_train_Ys
+    
+    for(index in seq_along(train_x_list)){
+      new_val <- index/length(train_x_list) - 0.1
+      status(detail = sprintf("Classifying %s of %s", names(train_x_list)[index],
+             length(train_x_list)), session = session, value = new_val)
+      train <- data.table(train_x_list[[index]],
+                          condition = as.factor(train_y_list[[index]]))
+      train <- h2o::as.h2o(train)
+      y <- "condition"
+      x <- setdiff(names(train), y)
+      
+      
+      #train <- dcast(test, Condition+BioReplicate~Protein, value.var = "Abundance")
+      if(classifier == "rf"){
+        status(detail = sprintf("Running Classifier %s", classifier), session = session,
+               value = new_val + 0.1)
+        model <- h2o::h2o.randomForest(x = x, y = y, training_frame = train,
+                                       validation_frame = valid,
+                                       stopping_rounds = 5, stopping_tolerance = 0.001, 
+                                       stopping_metric = stopping_metric, seed = seed, 
+                                       balance_classes = FALSE, nfolds = nfolds,
+                                       fold_assignment = fold_assignment)
+        
+        l <- labs(subtitle = "Model: Random Forest (h2o package)")
+        
+      } else if (classifier == "nnet"){
+        message("No Clue how to do it")
+      } else if (classifier == "svmLinear"){
+        model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, max_iterations = iters,
+                               seed = seed, disable_training_metrics = F)
+        l <- labs(subtitle = "Model: SVM (h2o package)")
+      } else if (classifier == "logreg"){
+        model <- h2o::h2o.glm(x = x, y = y, training_frame = train, seed = seed,
+                              family = family, lambda_search = TRUE, alpha = alpha, 
+                              nfolds = nfolds, solver = solver, link = link)
+        l <- labs(subtitle = "Model: Regression (h2o package)")
+      } else if (classifier == "naive_bayes"){
+        model <- h2o::h2o.naiveBayes(x = x, y = y, training_frame = train, ignore_const_cols = TRUE,
+                                     nfolds = nfolds, fold_assignment = fold_assignment,
+                                     seed = seed, laplace = laplace, min_sdev = min_sdev,
+                                     eps_sdev = eps, max_runtime_secs = 0)
+        l <- labs(subtitle = "Model: Naive Bayes (h2o package)")
+      } else{
+        stop("Not defined")
+      }
+      
+      status(detail = "Model training complete", value = new_val+0.2, session = session)
+      ket_qua_default <- NULL
+      if(classifier != "svmLinear")
+        results_cross_validation(model) -> ket_qua_default
+      name_val <- sprintf("Sample %s %s", samp[i],  names(train_x_list)[index])
+      models[[name_val]] <- list('model'= model, 'lab'=labs, 'table' = ket_qua_default)
+    }
+  }
+  h2o::h2o.shutdown()
+  return(models)
+}
+
+h2o_config <- function(){
+  threads <- as.numeric(Sys.getenv('nthreads'))
+  max_mem <- Sys.getenv("max_mem")
+  log_dir <- Sys.getenv("log_dir")
+  log_level <- Sys.getenv("log_level")
+  
+  threads <- ifelse(is.na(threads), -1, threads)
+  max_mem <- ifelse(as.logical(grep("g",max_mem)), max_mem, NULL)
+  
+  log_dir <- ifelse(log_dir == "", getwd(), log_dir)
+  log_level <- ifelse(log_level == "", "INFO", log_level)
+  
+  return(list("threads" = threads, "max_mem" = max_mem, "log_dir" = log_dir,
+              "log_level" = log_level)) 
+}
+
+
+results_cross_validation <- function(h2o_model) {
+  h2o_model@model$cross_validation_metrics_summary %>% 
+    as.data.frame() %>% 
+    select(-mean, -sd) %>% 
+    t() %>% 
+    as.data.frame() %>% 
+    mutate_all(as.character) %>% 
+    mutate_all(as.numeric) %>% 
+    select(Accuracy = accuracy, 
+           AUC = auc, 
+           Precision = precision, 
+           Specificity = specificity, 
+           Recall = recall, 
+           Logloss = logloss) %>% 
+    return()
+}
+
+
+plot_results <- function(df_results) {
+  df_results %>% 
+    tidyr::gather(Metrics, Values) %>% 
+    ggplot(aes(Metrics, Values, fill = Metrics, color = Metrics)) +
+    geom_boxplot(alpha = 0.3, show.legend = FALSE) + 
+    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +    
+    scale_y_continuous(labels = scales::percent) + 
+    facet_wrap(~ Metrics, scales = "free") + 
+    labs(title = "Model Performance by Some Criteria Selected", y = NULL)+
+    theme_minimal()
+}
+
+#### WRAPPER FOR CLASSIFICATION ######
+
+run_classification <- function(sim, inputs, session = session){
+  #browser()
+  if(inputs$use_h2o){
+    classification <- show_faults(
+      ss_classify_h2o(n_samp = inputs$n_samp_grp, sim_data = sim,
+                      classifier = inputs$classifier, stopping_metric = inputs$stop_metric,
+                      seed = -1, nfolds = inputs$nfolds,
+                      fold_assignment = inputs$f_assignment, iters = inputs$iters,
+                      family = inputs$family, solver = inputs$solver,
+                      link = inputs$link, min_sdev = inputs$min_sdev,
+                      laplace = inputs$laplace, eps = inputs$eps_sdev,
+                      session = session),
+      session = session)
+  }else{
+    classification <- show_faults(
+      sample_size_classification(n_samp = inputs$n_samp_grp,
+                                 sim_data = sim,
+                                 classifier = inputs$classifier,
+                                 session = session),
+      session = session
+    )
+  }
+  return(classification)
+}
