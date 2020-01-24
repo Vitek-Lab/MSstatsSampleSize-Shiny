@@ -1,6 +1,6 @@
 
 function(session, input, output) {
-  
+  rv <- reactiveValues()
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
   #### Toggle control for sidebar ####
@@ -23,6 +23,7 @@ function(session, input, output) {
         session = session
       ),
     message = "Progress:", value = 0.2, detail = "Loading Data...")
+    shinyjs::enable("simulate")
     return(data)
   })
   #switches to the data exploration tabs which are populated with the EDA
@@ -36,13 +37,19 @@ function(session, input, output) {
   )
   # Condition Summary Table
   output$cond_sum_table <- DT::renderDataTable(
-    DT::datatable(data()$cond_sum_table, options = list(dom = 't'),
-                  selection = 'none')
+    DT::datatable(data()$cond_sum_table,
+                  options = list(dom = 't', autoWidth = TRUE,
+                                 # columnDefs = list(list(width = '200px',
+                                 #                        targets = "_all")),
+                                 selection = 'none'))
   )
   # Data Summary Table
   output$sum_table <- DT::renderDataTable(
-    DT::datatable(data()$sum_table, options = list(dom = 't'),
-                  selection = 'none')
+    DT::datatable(data()$sum_table,
+                  options = list(dom = 't', autoWidth = TRUE,
+                                 # columnDefs = list(list(width = '200px',
+                                 #                        targets = "_all")),
+                  selection = 'none'))
   )
   # Boxplot for Proteins
   output$global_boxplot <- plotly::renderPlotly(
@@ -82,25 +89,26 @@ function(session, input, output) {
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
-    validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
+    #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress(
-      data <- show_faults(
-        expr = simulate_grid(data = data()$wide_data,
-                             annot = data()$annot_data,
-                             num_simulation = input$n_sim,
-                             exp_fc = input$exp_fc,
-                             fc_name = input$exp_fc_name,
-                             list_diff_proteins = input$diff_prot,
-                             sel_simulated_proteins = input$sel_sim_prot,
-                             prot_proportion = input$prot_prop,
-                             prot_number = input$prot_num,
-                             samples_per_group = input$n_samp_grp,
-                             sim_valid = input$sim_val,
-                             valid_samples_per_grp = input$n_val_samp_grp,
-                             session = session),
-        session = session
+      data <- show_faults({
+        simulate_grid(data = data()$wide_data,
+                      annot = data()$annot_data,
+                      num_simulation = input$n_sim,
+                      exp_fc = input$exp_fc,
+                      fc_name = input$exp_fc_name,
+                      list_diff_proteins = input$diff_prot,
+                      sel_simulated_proteins = input$sel_sim_prot,
+                      prot_proportion = input$prot_prop,
+                      prot_number = input$prot_num,
+                      samples_per_group = input$n_samp_grp,
+                      sim_valid = input$sim_val,
+                      valid_samples_per_grp = input$n_val_samp_grp,
+                      session = session)
+        },session = session
       ),
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
+    shinyjs::enable("run_model")
     return(data)
   })
   
@@ -114,8 +122,9 @@ function(session, input, output) {
       }))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
                       choices = sim_choices)
-    shinyjs::toggleState(id = "fwd", condition = length(sim_choices) > 1)
-    shinyjs::toggleState(id = "back", condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "fwd")#, condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "back")#, condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "download_pca")#, condition = length(sim_choices) > 1)
   })
   
   #### Backend for previous and next buttons ####
@@ -136,32 +145,37 @@ function(session, input, output) {
   })
   
   #### Backend for download all plots ####
-  observeEvent(input$download_pca,{
-    showNotification(sprintf("Beginning to Plot PCA for %s Simulations",
-                             length(sim_choices)), duration = 5, type = 'message',
-                     session = session)
-    lapply(simulations(), function(sim){
-      show_faults(expr = MSstatsSampleSize::designSampleSizePCAplot(sim),
-                  session = session)
-    })
-    
-    showNotification(sprintf("Plots Downloaded at: '%s'", getwd()), duration = 10,
-                     session = session, type = "message")
-  })
+  output$download_pca <- downloadHandler(
+    filename = sprintf("PCA_plots_%s.pdf", format(Sys.time(), "%Y%m%d%H%M%S")),
+    content = function(file){
+      withProgress({
+        pdf(file = file)
+        for(i in seq_along(sim_choices)){
+          status(sprintf("Plotting %s plot", i), value = i/length(sim_choices), session = session)
+          vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
+          sim <- sprintf("simulation%s",vals[1])
+          print(make_pca_plots(simulations()[[vals[2]]], which = sim)+
+                  labs(title = sim_choices[i]))
+        }
+        dev.off()
+      }
+      , session = session)
+    }
+      
+  )
+  
   
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
-    if(!is.null(simulations())){
+    if(!is.null(input$simulations)){
+      validate(need(nchar(input$simulations) != 0, 'No Sims'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
-      p <- sprintf("simulation%s",vals[1])
+      sim <- sprintf("simulation%s",vals[1])
       show_faults({
-        MSstatsSampleSize::designSampleSizePCAplot(simulations()[[vals[2]]],
-                                                   which.PCA = p,
-                                                   address = F)
-      },
+        make_pca_plots(simulations()[[vals[2]]], which = sim)},
         session = session)
     }else{
-      h1('No Simulations Found')
+      shiny::showNotification("No Simulations Found", duration = NULL)
     }
   )
  
@@ -197,42 +211,50 @@ function(session, input, output) {
                            condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
   })
   
-  classification <- eventReactive(input$run_model,{
-    withProgress(
-      show_faults(
-        run_classification(sim = simulations(), inputs = input, session = session)
-      ),
-      message = "Progress:", value = 0.2, detail = "Training")
-  })
-  
   observeEvent(input$run_model,{
     #browser()
-    withProgress(
-      show_faults(
-        run_classification(sim = simulations(), inputs = input, session = session)
-      ),
-      message = "Progress:", value = 0.2, detail = "Training"
-      )
+    withProgress({
+      rv$classification <- show_faults(
+          run_classification(sim = simulations(), inputs = input, session = session),
+          session = session
+        )
+      saveRDS(rv$classification,"classification.rds")
+      shinyjs::enable("download_models")
+      if(input$use_h2o){
+        output$acc_plot <- renderPlot({
+          print(rv$classification$acc_plot)
+        })
+        
+        output$importance_plot <- renderPlot({
+          plot(rv$classification$imp_plot)
+        })
+      }else{
+        output$acc_plot <- renderPlot({
+          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                                 rv$classification$samp,
+                                                                 protein_importance_plot = F,
+                                                                 address = F)
+          
+        })
+        
+        output$importance_plot <- renderPlot({
+          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                                 rv$classification$samp,
+                                                                 predictive_accuracy_plot = F,
+                                                                 address = F)
+        })
+      }
+    },
+    message = "Progress:", value = 0.2, detail = "Training"
+    )
   })
   
-  output$importance_plot <- renderPlot({
-    req(!input$use_h2o)
-    MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
-                                                           classification()$samp,
-                                                           predictive_accuracy_plot = F,
-                                                           address = F)
-  })
-  output$acc_plot <- renderPlot({
-    req(!input$use_h2o)
-    MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
-                                                           classification()$samp,
-                                                           protein_importance_plot = F,
-                                                           address = F)
-  })
+  
+  
   
   observeEvent(input$download_models, {
     fileName <- sprintf("Models_%s_%s.rds", input$classifier, format(Sys.time(),"%Y%m%d%H%M%S"))
-    saveRDS(classification(), fileName)
+    saveRDS(rv$classification, fileName)
     showNotification(sprintf("File Downloaded at %s --- File Name %s", getwd(), fileName),
                      duration = 20, type = 'message')
   })

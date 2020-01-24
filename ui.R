@@ -126,8 +126,9 @@ dashboardPage(
                           choices = c(T,F), selected = F),
               numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
                            value = 50, min = 50, max = 1000, step = 50),
-              actionButton(inputId = "simulate", label = "Simulate Data",
-                           icon =  icon("project-diagram"))
+              shinyjs::disabled(
+                actionButton(inputId = "simulate", label = "Simulate Data",
+                             icon =  icon("project-diagram")))
           ),
           #### Simulation details section #####
           box(title = "Simulated Datasets",
@@ -135,18 +136,21 @@ dashboardPage(
               fluidRow(
                 ##### Select individual simulation, previous and next buttons #####
                 column(4, selectInput(inputId = "simulations", label = "Simulations", choices = NULL)),
-                column(2, actionButton(inputId = "back", label = "Previous",
-                                       icon = icon("arrow-left"),
-                                       style = "margin-top: 25px;",
-                                       width = '100px')),
-                column(2, actionButton(inputId = "fwd", label = "Next",
-                                       icon = icon("arrow-right"),
-                                       style = "margin-top: 25px;",
-                                       width = '100px')),
-                column(2, actionButton(input = "download_pca", label = "Download All",
-                                       icon = icon("download"),
-                                       style = "margin-top: 25px;",
-                                       width = '150px'))
+                column(2, shinyjs::disabled(
+                  actionButton(inputId = "back", label = "Previous",
+                               icon = icon("arrow-left"),
+                               style = "margin-top: 25px;",
+                               width = '100px'))),
+                column(2, shinyjs::disabled(
+                  actionButton(inputId = "fwd", label = "Next",
+                               icon = icon("arrow-right"),
+                               style = "margin-top: 25px;",
+                               width = '100px'))),
+                column(2, shinyjs::disabled(
+                  downloadButton(outputId = "download_pca", label = "Download All",
+                               icon = icon("download"),
+                               style = "margin-top: 25px;",
+                               width = '150px')))
               ),
               plotOutput("pca_plot")
           )
@@ -159,12 +163,14 @@ dashboardPage(
         fluidRow(
           column(2, selectInput(inputId = "classifier", label = "Select Model to Train",
                                 choice = MODELS, width = '200px')),
-          column(1, actionButton(inputId = "run_model", label = "Train Model",
-                                 style = "margin-top: 25px;",
-                                 width = '100px')),
-          column(2, actionButton(inputId = "download_models", label = "Download Models",
-                                 style = "margin-top: 25px;",
-                                 width = '150px')),
+          column(1, shinyjs::disabled(
+            actionButton(inputId = "run_model", label = "Train Model",
+                         style = "margin-top: 25px;",
+                         width = '100px'))),
+          column(2, shinyjs::disabled(
+            actionButton(inputId = "download_models", label = "Download Models",
+                         style = "margin-top: 25px;",
+                         width = '150px'))),
           column(2, checkboxInput(inputId = "use_h2o", label = "Use H2O Package"))
         ),
         fluidRow(
@@ -172,7 +178,7 @@ dashboardPage(
               width = 3,
               selectInput(inputId = "stop_metric", label = "Stopping Metric",
                           choices = STOPPING_METRIC),
-              numericInput(inputId = "nfolds", label = "N-Folds", value = 2, min = 2,
+              numericInput(inputId = "nfolds", label = "N-Folds", value = 2, min = 0,
                            max = 100, step = 1),
               selectInput(inputId = "f_assignment", label = "Fold Assignment",
                           choices = FOLD_ASSIGNMENT),
@@ -191,20 +197,17 @@ dashboardPage(
           ),
           box(id = "model_viz",
               width = 9,
-              selectInput(inputId = "models_c", label = "Select Model", choices = NULL),
-              plotOutput("model_vis")
+              fluidRow(
+                column(6, plotOutput("acc_plot")),
+                column(6, plotOutput("importance_plot"))
+              )
           )
-        ),
-        box(id ="p_imp",
-            title = "Protein Importance",
-            width = 12,
-            plotOutput('importance_plot')
-        ),
-        box(id = "pred_acc",
-            title = "Predictive Accuracy",
-            width = 12,
-            plotOutput('acc_plot')
         )
+        # box(id ="p_imp",
+        #     title = "Protein Importance",
+        #     width = 12,
+        #     plotOutput('importance_plot')
+        # )
       )
     )
   )
