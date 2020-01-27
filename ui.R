@@ -143,10 +143,10 @@ dashboardPage(
                                        icon = icon("arrow-right"),
                                        style = "margin-top: 25px;",
                                        width = '100px')),
-                column(2, actionButton(input = "download_pca", label = "Download All",
-                                       icon = icon("download"),
-                                       style = "margin-top: 25px;",
-                                       width = '150px'))
+                column(2, downloadButton(outputId = "download_pca", label = 'New Download',
+                                         icon = icon("download"),
+                                         style = "margin-top: 25px;",
+                                         width = '150px'))
               ),
               plotOutput("pca_plot")
           )

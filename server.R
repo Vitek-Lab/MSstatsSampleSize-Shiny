@@ -136,32 +136,35 @@ function(session, input, output) {
   })
   
   #### Backend for download all plots ####
-  observeEvent(input$download_pca,{
-    showNotification(sprintf("Beginning to Plot PCA for %s Simulations",
-                             length(sim_choices)), duration = 5, type = 'message',
-                     session = session)
-    lapply(simulations(), function(sim){
-      show_faults(expr = MSstatsSampleSize::designSampleSizePCAplot(sim),
-                  session = session)
-    })
-    
-    showNotification(sprintf("Plots Downloaded at: '%s'", getwd()), duration = 10,
-                     session = session, type = "message")
-  })
+  output$download_pca <- downloadHandler(
+    filename = sprintf("PCA_plots_%s.pdf", format(Sys.time(), "%Y%m%d%H%M%S")),
+    content = function(file){
+      withProgress({
+        pdf(file = file)
+        for(i in seq_along(sim_choices)){
+          status(sprintf("Plotting %s plot", i), value = i/length(sim_choices), session = session)
+          vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
+          sim <- sprintf("simulation%s",vals[1])
+          print(make_pca_plots(simulations()[[vals[2]]], which = sim)+
+                  labs(title = sim_choices[i]))
+        }
+        dev.off()
+      }
+      , session = session)
+    }
+  )
   
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
-    if(!is.null(simulations())){
+    if(!is.null(input$simulations)){
+      validate(need(nchar(input$simulations) != 0, 'No Sims'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
-      p <- sprintf("simulation%s",vals[1])
+      sim <- sprintf("simulation%s",vals[1])
       show_faults({
-        MSstatsSampleSize::designSampleSizePCAplot(simulations()[[vals[2]]],
-                                                   which.PCA = p,
-                                                   address = F)
-      },
+        make_pca_plots(simulations()[[vals[2]]], which = sim)},
         session = session)
     }else{
-      h1('No Simulations Found')
+      shiny::showNotification("No Simulations Found", duration = NULL)
     }
   )
  
