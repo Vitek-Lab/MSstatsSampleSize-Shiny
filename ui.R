@@ -193,7 +193,8 @@ dashboardPage(
               sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold", min = 0, max = 1,
                           step = 0.001, value = 0.01),
               sliderInput(inputId = "min_sdev", label = "Minimum SD", min = 0.01,
-                          value = 0.01, max = 1)
+                          value = 0.01, max = 1),
+              plotOutput('acc_plot')
           ),
           box(id = "model_viz",
               width = 9,

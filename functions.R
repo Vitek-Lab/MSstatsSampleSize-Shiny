@@ -530,11 +530,7 @@ results_cross_validation <- function(h2o_model) {
 }
 
 
-plot_acc <- function(data, x.axis.size = 10, y.axis.size = 10,
-                     protein_importance_plot_width = 3,
-                     protein_importance_plot_height = 3,
-                     predictive_accuracy_plot_width = 4,
-                     predictive_accuracy_plot_height = 4, xlim = c(0,1)){
+plot_acc <- function(data, xlim = c(0,1)){
   model_data <- data$models
   df <- rbindlist(lapply(names(model_data), function(x){
     z <- model_data[[x]]
@@ -556,38 +552,13 @@ plot_acc <- function(data, x.axis.size = 10, y.axis.size = 10,
     geom_point()+
     scale_y_continuous(limits = xlim) +
     scale_x_continuous(breaks = df[,sample])+
-    theme(panel.background = element_rect(fill = "white", 
-                                          colour = "black"),
-          panel.grid.major = element_line(colour = "gray95"), 
-          panel.grid.minor = element_blank(), 
-          strip.background = element_rect(fill = "gray95"), 
-          strip.text.x = element_text(colour = c("#00B0F6"), 
-                                      size = 14), 
-          axis.text.x = element_text(size = x.axis.size, 
-                                     colour = "black"),
-          axis.text.y = element_text(size = y.axis.size, 
-                                     colour = "black"), 
-          axis.ticks = element_line(colour = "black"), 
-          axis.title.x = element_text(size = x.axis.size + 
-                                        4, vjust = -0.4), 
-          axis.title.y = element_text(size = y.axis.size + 
-                                        4, vjust = 0.3),
-          title = element_text(size = x.axis.size + 
-                                 3, vjust = 1.5))
+    theme_MSstats()
   
   return(p)
 }
 
 plot_var_imp <- function(data){
   
-  x.axis.size = 10
-  y.axis.size = 10
-  protein_importance_plot_width = 3 
-  protein_importance_plot_height = 3
-  predictive_accuracy_plot_width = 4 
-  predictive_accuracy_plot_height = 4
-  ylimUp_predictive_accuracy = 1
-  ylimDown_predictive_accuracy = 0
   df <- rbindlist(lapply(names(data), function(x){
     dt <- as.data.table(
       h2o::h2o.varimp(data[[x]]$model)
@@ -601,11 +572,11 @@ plot_var_imp <- function(data){
   df[, c('sample size', 'simulation') := tstrsplit(name, " ", fixed = T)]
   df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample size")]
   
-  dt <- df%>%
-    mutate(variable = reorder(variable, relative_importance))%>%
+  dt <- df %>%
+    mutate(variable = reorder(variable, relative_importance)) %>%
     group_by(`sample size`, variable) %>%
-    arrange(desc(relative_importance))%>%
-    ungroup()%>%
+    arrange(desc(relative_importance)) %>%
+    ungroup() %>%
     mutate(variable = factor(paste(variable, `sample size`, sep = '_'),
                              levels = rev(paste(variable, `sample size`, sep ='_'))))
   
@@ -615,24 +586,7 @@ plot_var_imp <- function(data){
     scale_x_discrete(breaks = dt$variable,
                      labels = gsub("_.*",'',as.character(dt$variable)))+
     facet_wrap(~`sample size`, scales = 'free', ncol = 2)+
-    theme(panel.background = element_rect(fill = "white", 
-                                          colour = "black"),
-          panel.grid.major = element_line(colour = "gray95"), 
-          panel.grid.minor = element_blank(), 
-          strip.background = element_rect(fill = "gray95"), 
-          strip.text.x = element_text(colour = c("#00B0F6"), 
-                                      size = 14), 
-          axis.text.x = element_text(size = x.axis.size, 
-                                     colour = "black"),
-          axis.text.y = element_text(size = y.axis.size, 
-                                     colour = "black"), 
-          axis.ticks = element_line(colour = "black"), 
-          axis.title.x = element_text(size = x.axis.size + 
-                                        4, vjust = -0.4), 
-          axis.title.y = element_text(size = y.axis.size + 
-                                        4, vjust = 0.3),
-          title = element_text(size = x.axis.size + 
-                                 3, vjust = 1.5))+
+    theme_MSstats()+
     coord_flip()
   
   return(g)
