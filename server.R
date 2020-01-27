@@ -3,6 +3,7 @@ function(session, input, output) {
   
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
+  rv <- reactiveValues()
   #### Toggle control for sidebar ####
   # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
@@ -170,6 +171,12 @@ function(session, input, output) {
  
   
   #### Run Classification #####
+  observeEvent(input$n_samp_grp,{
+    vals <- unlist(strsplit(input$n_samp_grp, ","))
+    vals <- sprintf("Sample%s", vals)
+    updateSelectInput(session = session, inputId = "s_size", label = "Sample Size",
+                      choices = vals)
+  })
   
   observeEvent(input$use_h2o, {
     shinyjs::toggleElement(id = "model_config", condition = input$use_h2o == T)
@@ -200,38 +207,57 @@ function(session, input, output) {
                            condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
   })
   
-  classification <- eventReactive(input$run_model,{
-    withProgress(
-      show_faults(
-        run_classification(sim = simulations(), inputs = input, session = session)
-      ),
-      message = "Progress:", value = 0.2, detail = "Training")
-  })
-  
   observeEvent(input$run_model,{
-    #browser()
-    withProgress(
-      show_faults(
+    withProgress({
+      rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session)
-      ),
-      message = "Progress:", value = 0.2, detail = "Training"
       )
+      if(input$use_h2o){
+        output$acc_plot <- renderPlot(
+          rv$classification$acc_plot
+        )
+      }else{
+        output$importance_plot <- renderPlot({
+          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                                 rv$classification$samp,
+                                                                 predictive_accuracy_plot = F,
+                                                                 address = F)
+        })
+        output$acc_plot <- renderPlot({
+          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                                 rv$classification$samp,
+                                                                 protein_importance_plot = F,
+                                                                 address = F)
+        })
+      }
+    },message = "Progress:", value = 0.2, detail = "Training"
+    )
   })
   
   output$importance_plot <- renderPlot({
-    req(!input$use_h2o)
-    MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
-                                                           classification()$samp,
-                                                           predictive_accuracy_plot = F,
-                                                           address = F)
+    validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
+    plot_var_imp(data = rv$classification$models, 
+                 sample = input$s_size)
   })
-  output$acc_plot <- renderPlot({
-    req(!input$use_h2o)
-    MSstatsSampleSize::designSampleSizeClassificationPlots(data = classification()$res,
-                                                           classification()$samp,
-                                                           protein_importance_plot = F,
-                                                           address = F)
-  })
+  
+  output$download_prot_imp <- downloadHandler(
+    filename = sprintf("Protein_Importance_plots_%s.pdf",
+                       format(Sys.time(), "%Y%m%d%H%M%S")),
+    content = function(file){
+      plots <- plot_var_imp(data = rv$classification$models, sample = 'all',
+                            prots = nrow(rv$classification$models[[1]]$var_imp))
+      withProgress({
+        pdf(file = file, height = 10, width = 8)
+        for(i in seq_along(plots)){
+          status(sprintf("Plottint %s plot", i), value = i/length(plots),
+                 session = session)
+          print(plots[[i]])
+        }
+        dev.off()
+      }, session = session)
+    }
+  )
+  
   
   observeEvent(input$download_models, {
     fileName <- sprintf("Models_%s_%s.rds", input$classifier, format(Sys.time(),"%Y%m%d%H%M%S"))

@@ -557,37 +557,49 @@ plot_acc <- function(data, xlim = c(0,1)){
   return(p)
 }
 
-plot_var_imp <- function(data){
+plot_var_imp <- function(data, sample = 'all', prots = 10){
   
-  df <- rbindlist(lapply(names(data), function(x){
+  samp <- names(data)
+    
+  if(sample != 'all'){
+    req_samp <- unique(unlist(strsplit(samp, ' ')))
+    req_samp <- req_samp[grep("Sample", req_samp)]
+    req_samp <- req_samp[grep(sample, req_samp)]
+    samp <- samp[grep(req_samp, samp)]
+  }
+  
+  df <- rbindlist(lapply(samp, function(x){
     dt <- as.data.table(
       h2o::h2o.varimp(data[[x]]$model)
     )
     setorder(dt, -scaled_importance)
-    dt <- head(dt, 10)
     dt$name <- x
     dt
   }))
   
-  df[, c('sample size', 'simulation') := tstrsplit(name, " ", fixed = T)]
-  df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample size")]
+  df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
+  df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
   
   dt <- df %>%
     mutate(variable = reorder(variable, relative_importance)) %>%
-    group_by(`sample size`, variable) %>%
+    group_by(sample_size, variable) %>%
     arrange(desc(relative_importance)) %>%
     ungroup() %>%
-    mutate(variable = factor(paste(variable, `sample size`, sep = '_'),
-                             levels = rev(paste(variable, `sample size`, sep ='_'))))
+    mutate(variable = factor(paste(variable, sample_size, sep = '_'),
+                             levels = rev(paste(variable, 
+                                                sample_size, sep ='_'))))%>%
+    as.data.table()
   
-  g <- ggplot(data = dt, aes(variable, relative_importance))+
-    geom_col()+
-    labs(x = "Protein", y = "Rel. Importance")+
-    scale_x_discrete(breaks = dt$variable,
-                     labels = gsub("_.*",'',as.character(dt$variable)))+
-    facet_wrap(~`sample size`, scales = 'free', ncol = 2)+
-    theme_MSstats()+
-    coord_flip()
+  g <- lapply(dt[,unique(sample_size)], function(x){
+    ggplot(data = head(dt[sample_size == x], prots), aes(variable, relative_importance))+
+      geom_col()+
+      labs(x = "Protein", y = "Relative Importance", title = x)+
+      scale_x_discrete(breaks = dt$variable,
+                       labels = gsub("_.*",'',as.character(dt$variable)))+
+      theme_MSstats()+
+      coord_flip()
+  })
+  names(g) <- dt[,unique(sample_size)]
   
   return(g)
 }
@@ -618,8 +630,8 @@ run_classification <- function(sim, inputs, session = session){
                                       session = session)
     plots <- plot_acc(data = classification)
     plot_imp <- plot_var_imp(data = classification$models)
-    classification <- append(classification, list('acc_plot' = plots, 
-                                                  'imp_plot' = plot_imp))
+    classification <- append(classification, list('acc_plot' = plots,
+                                                  'plot_imp' = plot_imp))
   }else{
     classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
                                                  sim_data = sim,
