@@ -126,8 +126,9 @@ dashboardPage(
                           choices = c(T,F), selected = F),
               numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
                            value = 50, min = 50, max = 1000, step = 50),
-              actionButton(inputId = "simulate", label = "Simulate Data",
-                           icon =  icon("project-diagram"))
+              shinyjs::disabled(
+                actionButton(inputId = "simulate", label = "Simulate Data",
+                             icon =  icon("project-diagram")))
           ),
           #### Simulation details section #####
           box(title = "Simulated Datasets",
@@ -147,6 +148,7 @@ dashboardPage(
                                          icon = icon("download"),
                                          style = "margin-top: 25px;",
                                          width = '150px'))
+
               ),
               plotOutput("pca_plot")
           )
@@ -174,7 +176,7 @@ dashboardPage(
                           label = "Stopping Metric",
                           choices = STOPPING_METRIC),
               numericInput(inputId = "nfolds", label = "N-Folds",
-                           value = 2, min = 2, max = 100, step = 1),
+                           value = 2, min = 0, max = 100, step = 1),
               selectInput(inputId = "f_assignment", label = "Fold Assignment",
                           choices = FOLD_ASSIGNMENT),
               numericInput(inputId = "iters", label = "Iterations", value = 200,
@@ -202,6 +204,11 @@ dashboardPage(
                              label = "Download Combined PDF")
           )
         )
+        # box(id ="p_imp",
+        #     title = "Protein Importance",
+        #     width = 12,
+        #     plotOutput('importance_plot')
+        # )
       )
     )
   )

@@ -1,6 +1,6 @@
 
 function(session, input, output) {
-  
+  rv <- reactiveValues()
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
   rv <- reactiveValues()
@@ -24,6 +24,7 @@ function(session, input, output) {
         session = session
       ),
     message = "Progress:", value = 0.2, detail = "Loading Data...")
+    shinyjs::enable("simulate")
     return(data)
   })
   #switches to the data exploration tabs which are populated with the EDA
@@ -37,13 +38,19 @@ function(session, input, output) {
   )
   # Condition Summary Table
   output$cond_sum_table <- DT::renderDataTable(
-    DT::datatable(data()$cond_sum_table, options = list(dom = 't'),
-                  selection = 'none')
+    DT::datatable(data()$cond_sum_table,
+                  options = list(dom = 't', autoWidth = TRUE,
+                                 # columnDefs = list(list(width = '200px',
+                                 #                        targets = "_all")),
+                                 selection = 'none'))
   )
   # Data Summary Table
   output$sum_table <- DT::renderDataTable(
-    DT::datatable(data()$sum_table, options = list(dom = 't'),
-                  selection = 'none')
+    DT::datatable(data()$sum_table,
+                  options = list(dom = 't', autoWidth = TRUE,
+                                 # columnDefs = list(list(width = '200px',
+                                 #                        targets = "_all")),
+                  selection = 'none'))
   )
   # Boxplot for Proteins
   output$global_boxplot <- plotly::renderPlotly(
@@ -83,25 +90,26 @@ function(session, input, output) {
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
-    validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
+    #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress(
-      data <- show_faults(
-        expr = simulate_grid(data = data()$wide_data,
-                             annot = data()$annot_data,
-                             num_simulation = input$n_sim,
-                             exp_fc = input$exp_fc,
-                             fc_name = input$exp_fc_name,
-                             list_diff_proteins = input$diff_prot,
-                             sel_simulated_proteins = input$sel_sim_prot,
-                             prot_proportion = input$prot_prop,
-                             prot_number = input$prot_num,
-                             samples_per_group = input$n_samp_grp,
-                             sim_valid = input$sim_val,
-                             valid_samples_per_grp = input$n_val_samp_grp,
-                             session = session),
-        session = session
+      data <- show_faults({
+        simulate_grid(data = data()$wide_data,
+                      annot = data()$annot_data,
+                      num_simulation = input$n_sim,
+                      exp_fc = input$exp_fc,
+                      fc_name = input$exp_fc_name,
+                      list_diff_proteins = input$diff_prot,
+                      sel_simulated_proteins = input$sel_sim_prot,
+                      prot_proportion = input$prot_prop,
+                      prot_number = input$prot_num,
+                      samples_per_group = input$n_samp_grp,
+                      sim_valid = input$sim_val,
+                      valid_samples_per_grp = input$n_val_samp_grp,
+                      session = session)
+        },session = session
       ),
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
+    shinyjs::enable("run_model")
     return(data)
   })
   
@@ -115,8 +123,9 @@ function(session, input, output) {
       }))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
                       choices = sim_choices)
-    shinyjs::toggleState(id = "fwd", condition = length(sim_choices) > 1)
-    shinyjs::toggleState(id = "back", condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "fwd")#, condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "back")#, condition = length(sim_choices) > 1)
+    shinyjs::enable(id = "download_pca")#, condition = length(sim_choices) > 1)
   })
   
   #### Backend for previous and next buttons ####
@@ -209,7 +218,7 @@ function(session, input, output) {
   
   observeEvent(input$run_model,{
     withProgress({
-      browser()
+      #browser()
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session)
       )
@@ -263,7 +272,7 @@ function(session, input, output) {
   
   observeEvent(input$download_models, {
     fileName <- sprintf("Models_%s_%s.rds", input$classifier, format(Sys.time(),"%Y%m%d%H%M%S"))
-    saveRDS(classification(), fileName)
+    saveRDS(rv$classification, fileName)
     showNotification(sprintf("File Downloaded at %s --- File Name %s", getwd(), fileName),
                      duration = 20, type = 'message')
   })
