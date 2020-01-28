@@ -413,7 +413,6 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
   samp <- unlist(strsplit(n_samp,','))
   models <- list()
   status(detail = "Getting parameters for H2O", value = 0.1, session = session)
-  config <- h2o_config()
   status(detail = "Initiating H2O Cluster", value = 0.1 , session = session)
   h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
                 log_dir = config$log_dir, log_level = config$log_level)
@@ -500,8 +499,6 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
                                  'table' = ket_qua_default, 'var_imp' = var_imp)
     }
   }
-  h2o::h2o.shutdown(prompt = F)
-  status(detail = "Closing H2O Cluster", value = 0.99, session = session)
   return(list('models' = models))
 }
 

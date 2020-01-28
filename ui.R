@@ -68,17 +68,20 @@ dashboardPage(
         br(),
         #### Summary Tables ####
         fluidRow(
-          column(6, DT::dataTableOutput("sum_table")),
-          column(6, DT::dataTableOutput("cond_sum_table"))
+          box(title = "Summary", width = 6, solidHeader = T, status = "primary",
+              DT::dataTableOutput("sum_table")),
+          box(title = "Condition Summary", width = 6, solidHeader = T,
+              status = "primary", 
+              DT::dataTableOutput("cond_sum_table"))
         ),
         br(),
         #### Box plots and HeatMap ####
         fluidRow(
-          box(title = "QC Box Plot",
+          box(title = "QC Box Plot", solidHeader = T, status = "primary",
               width = 6,
               plotly::plotlyOutput("global_boxplot")
           ),
-          box(title = "Mean-Variance Plot",
+          box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
               width = 6,
               plotOutput("mean_sd_plot")
           )
@@ -102,9 +105,8 @@ dashboardPage(
                                            ".csv", "text/tab-separated-values", ".tsv")),
         fluidRow(
           #### Box to input simulation parameters from the dashboard ######
-          box(id = "param_box",
-              width = 3,
-              h4("Parameters For Simulating DataSets"),
+          box(id = "param_box", title = "Parameters For Simulating DataSets",
+              width = 3, solidHeader = T, status = "primary",
               numericInput(inputId = "n_sim", label = "Number of Simulations",
                            value = 10, min = 10, max = 500, step = 1),
               textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
@@ -131,7 +133,7 @@ dashboardPage(
                              icon =  icon("project-diagram")))
           ),
           #### Simulation details section #####
-          box(title = "Simulated Datasets",
+          box(title = "Simulated Datasets", solidHeader = T, status = "primary",
               width = 9,
               fluidRow(
                 ##### Select individual simulation, previous and next buttons #####

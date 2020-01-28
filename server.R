@@ -1,5 +1,10 @@
 
 function(session, input, output) {
+  
+  onStop(function() {
+    try({h2o.shutdown(prompt = FALSE)}, silent=TRUE)
+  })
+  
   rv <- reactiveValues()
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
@@ -167,7 +172,7 @@ function(session, input, output) {
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
     if(!is.null(input$simulations)){
-      validate(need(nchar(input$simulations) != 0, 'No Sims'))
+      validate(need(nchar(input$simulations) != 0, 'No Simulations Run yet'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
       sim <- sprintf("simulation%s",vals[1])
       show_faults({
@@ -179,7 +184,7 @@ function(session, input, output) {
   )
  
   
-  #### Run Classification #####
+  #### Toggle switches and control for selectInputs in Analyze Tab ####
   observeEvent(input$n_samp_grp,{
     vals <- unlist(strsplit(input$n_samp_grp, ","))
     vals <- sprintf("Sample%s", vals)
@@ -193,6 +198,8 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "pred_acc", condition = input$use_h2o != T)
   })
   
+  ##### Toggle switches based on input classifier for H2o #####
+  #TODO make this chunk simplier
   observeEvent(input$classifier, {
     shinyjs::toggleElement(id = "stop_metric",
                            condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
@@ -215,18 +222,15 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "min_sdev",
                            condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
   })
-  
+  #### Run Classification #####
   observeEvent(input$run_model,{
     withProgress({
-      #browser()
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session)
       )
-      if(input$use_h2o){
-        output$acc_plot <- renderPlot(
-          rv$classification$acc_plot
-        )
-      }else{
+      
+      
+      if(!input$use_h2o){
         output$importance_plot <- renderPlot({
           MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
                                                                  rv$classification$samp,
@@ -244,6 +248,12 @@ function(session, input, output) {
     )
   })
   
+  ##### Render Model training plots ####
+  output$acc_plot <- renderPlot({
+    validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
+    rv$classification$acc_plot
+  })
+  
   output$importance_plot <- renderPlot({
     validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
     plot_var_imp(data = rv$classification$models, 
@@ -251,6 +261,7 @@ function(session, input, output) {
   })
   
   
+  #### Download buttons for models plots/and data #####
   output$download_prot_imp <- downloadHandler(
     filename = sprintf("Protein_Importance_plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),

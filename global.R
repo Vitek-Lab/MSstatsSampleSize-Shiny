@@ -5,6 +5,9 @@ library(shinyWidgets)
 library(ggplot2)
 library(data.table)
 library(dplyr)
+library(naivebayes)
+library(randomForest)
+library(kernlab)
 
 source('functions.R')
 FORMATS <- c("examples", "standard")
@@ -29,3 +32,8 @@ SOLVER <- c("AUTO", "IRLSM", "L_BFGS", "COORDINATE_DESCENT_NAIVE", "COORDINATE_D
            "GRADIENT_DESCENT_LH", "GRADIENT_DESCENT_SQERR")
 
 LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie", "ologit")
+
+
+config <- h2o_config()
+h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
+              log_dir = config$log_dir, log_level = config$log_level)
