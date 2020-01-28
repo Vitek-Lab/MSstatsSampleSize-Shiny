@@ -109,19 +109,19 @@ dashboardPage(
               width = 3, solidHeader = T, status = "primary",
               numericInput(inputId = "n_sim", label = "Number of Simulations",
                            value = 10, min = 10, max = 500, step = 1),
-              textInput(inputId = "exp_fc", label = "Expected fold changes of proteins",
-                        value = "data", placeholder = "0,1,2"),
-              textInput(inputId = "exp_fc_name", label = "Names of Expected Fold Change",
-                        value = NULL),
+              checkboxInput(inputId = "exp_fc", label = "Use Default Fold Change?",
+                            value = T),
+              selectInput(inputId = "b_group", label = "Baseline Group",
+                          choices = NULL),
               textInput(inputId = "diff_prot", label = "List Diff Protein",
                         value = NULL),
               selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
                           choices = c("proportion", "number"),
                           selected = "proportion"),
-              numericInput(inputId = "prot_prop", label = "Protein Proportion",
+              sliderInput(inputId = "prot_prop", label = "Protein Proportion",
                            value = 1, min = 0, max = 1, step = 0.01),
-              numericInput(inputId = "prot_num", label = "Protein Number",
-                           value = 1000, max = 1000, min = 25),
+              sliderInput(inputId = "prot_num", label = "Protein Number",
+                           value = 1, max = 1000, min = 1),
               textInput(inputId = "n_samp_grp", label = "Samples per group",
                         value = NULL, placeholder = "50,60,70"),
               selectInput(inputId = "sim_val", label = "Simulate Validation Set",
@@ -160,20 +160,23 @@ dashboardPage(
       tabItem(
         tabName = "analyse_simulated",
         h1("Analyze the simulated datasets"),
-        checkboxInput(inputId = "use_h2o", label = "Use H2O Package"),
         fluidRow(
-          column(2, selectInput(inputId = "classifier", label = "Select Model to Train",
-                                choice = MODELS, width = '200px')),
-          column(1, actionButton(inputId = "run_model", label = "Train Model",
-                                 style = "margin-top: 25px;",
-                                 width = '100px')),
-          column(2, actionButton(inputId = "download_models", label = "Download Models",
-                                 style = "margin-top: 25px;",
-                                 width = '150px'))
+          column(width = 3, 
+                 checkboxInput(inputId = "use_h2o", label = "Use H2O Package")
+          ),
+          column(width = 3, offset = 4,
+                 selectInput(inputId = "s_size", label = "Sample Size",
+                             choices = NULL)
+          ),
+          downloadButton(outputId = "download_prot_imp",
+                         label = "Download Combined PDF", 
+                         style = "margin-top: 25px;", width = '150px')
         ),
         fluidRow(
           box(id = "model_config", width = 3, status = "primary",
-              solidHeader = T, title = "Parameter Setup",
+              solidHeader = T, title = "Model Setup",
+              selectInput(inputId = "classifier", label = "Select Model to Train",
+                          choice = MODELS, width = '200px'),
               selectInput(inputId = "stop_metric", 
                           label = "Stopping Metric",
                           choices = STOPPING_METRIC),
@@ -192,25 +195,19 @@ dashboardPage(
               sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold",
                           min = 0, max = 1, step = 0.001, value = 0.01),
               sliderInput(inputId = "min_sdev", label = "Minimum SD",
-                          min = 0.01, value = 0.01, max = 1)
+                          min = 0.01, value = 0.01, max = 1),
+              actionButton(inputId = "run_model", label = "Train Model",
+                           width = '100px'),
+              actionButton(inputId = "download_models", label = "Download Models")
           ),
-          
           box(width = 4, title = "Accuracy", status = "info", solidHeader = T,
               plotOutput(outputId = 'acc_plot')
           ),
           box(width = 5, title = "Protein Importance", status = "success",
               solidHeader = T,
-              selectInput(inputId = "s_size", label = "Sample Size", choices = NULL),
-              plotOutput('importance_plot'),
-              downloadButton(outputId = "download_prot_imp",
-                             label = "Download Combined PDF")
+              plotOutput('importance_plot')
           )
         )
-        # box(id ="p_imp",
-        #     title = "Protein Importance",
-        #     width = 12,
-        #     plotOutput('importance_plot')
-        # )
       )
     )
   )

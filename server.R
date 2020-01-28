@@ -20,21 +20,22 @@ function(session, input, output) {
   
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
-    withProgress(
+    withProgress({
       data <- show_faults(
         expr = explore_data(format = input$data_format,
                             count = input$standard_count,
                             annot = input$standard_annot,
                             session = session),
         session = session
-      ),
+      )
+      updateSliderInput(session = session, inputId = "prot_num",
+                        min = 1, max = data$n_prot, value = data$n_prot)
+      updateSelectInput(session = session, inputId = "b_group",
+                        choices = data$annot_data[,unique(Condition)])
+      },
     message = "Progress:", value = 0.2, detail = "Loading Data...")
     shinyjs::enable("simulate")
     return(data)
-  })
-  #switches to the data exploration tabs which are populated with the EDA
-  observeEvent(input$import_data,{
-    updateTabItems(session = session, "tabs", selected = "explore_data")
   })
   
   #### Visualize EDA ####
@@ -42,13 +43,15 @@ function(session, input, output) {
     paste("Data Set Name:",data()$dataset_name)
   )
   # Condition Summary Table
-  output$cond_sum_table <- DT::renderDataTable(
+  output$cond_sum_table <- DT::renderDataTable({
+    validate(need(!is.null(data()), "Data Formatting in Progress"))
+    validate(need(!is.null(data()$cond_sum_table), "Data Not Imported"))
     DT::datatable(data()$cond_sum_table,
                   options = list(dom = 't', autoWidth = TRUE,
                                  # columnDefs = list(list(width = '200px',
                                  #                        targets = "_all")),
                                  selection = 'none'))
-  )
+  })
   # Data Summary Table
   output$sum_table <- DT::renderDataTable(
     DT::datatable(data()$sum_table,
@@ -66,12 +69,18 @@ function(session, input, output) {
     data()$meanSDplot
   )
   
+  #switches to the data exploration tabs which are populated with the EDA
+  observeEvent(input$import_data,{
+    updateTabItems(session = session, "tabs", selected = "explore_data")
+  })
   #### Toggle control for simulate data tab ####
   observeEvent(input$exp_fc,{
     shinyjs::toggleElement(id = "diff_prot",
-                           condition = input$exp_fc != "data")
+                           condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "exp_fc_name",
-                           condition = input$exp_fc != "data")
+                           condition = input$exp_fc != T)
+    shinyjs::toggleElement(id = "b_group",
+                           condition = input$exp_fc != T)
   })
 
   observeEvent(input$sel_sim_prot,{
@@ -96,12 +105,13 @@ function(session, input, output) {
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
     #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
-    withProgress(
+    withProgress({
+      exp_fc <- ifelse(input$exp_fc, 'data', "")
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
                       num_simulation = input$n_sim,
-                      exp_fc = input$exp_fc,
+                      exp_fc = exp_fc,
                       fc_name = input$exp_fc_name,
                       list_diff_proteins = input$diff_prot,
                       sel_simulated_proteins = input$sel_sim_prot,
@@ -112,7 +122,8 @@ function(session, input, output) {
                       valid_samples_per_grp = input$n_val_samp_grp,
                       session = session)
         },session = session
-      ),
+      )
+      },
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
     shinyjs::enable("run_model")
     return(data)
@@ -192,14 +203,31 @@ function(session, input, output) {
                       choices = vals)
   })
   
-  observeEvent(input$use_h2o, {
-    shinyjs::toggleElement(id = "model_config", condition = input$use_h2o == T)
-    shinyjs::toggleElement(id = "p_imp", condition = input$use_h2o != T)
-    shinyjs::toggleElement(id = "pred_acc", condition = input$use_h2o != T)
-  })
-  
   ##### Toggle switches based on input classifier for H2o #####
   #TODO make this chunk simplier
+  observeEvent(input$use_h2o, {
+    shinyjs::toggleElement(id = "stop_metric",
+                           condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
+    shinyjs::toggleElement(id = "nfolds",
+                           condition = (input$use_h2o == T && input$classifier == "rf"))
+    shinyjs::toggleElement(id = "f_assignment",
+                           condition = (input$use_h2o == T && input$classifier %in% c("rf", "naive_bayes")))
+    shinyjs::toggleElement(id = "iters",
+                           condition = (input$use_h2o == T && input$classifier == "svmLinear"))
+    shinyjs::toggleElement(id = "link",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "family",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "solver",
+                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+    shinyjs::toggleElement(id = "laplace",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+    shinyjs::toggleElement(id = "eps_sdev",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+    shinyjs::toggleElement(id = "min_sdev",
+                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+  })
+  
   observeEvent(input$classifier, {
     shinyjs::toggleElement(id = "stop_metric",
                            condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
@@ -226,24 +254,9 @@ function(session, input, output) {
   observeEvent(input$run_model,{
     withProgress({
       rv$classification <- show_faults(
-        run_classification(sim = simulations(), inputs = input, session = session)
+        run_classification(sim = simulations(), inputs = input, session = session),
+        session = session
       )
-      
-      
-      if(!input$use_h2o){
-        output$importance_plot <- renderPlot({
-          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
-                                                                 rv$classification$samp,
-                                                                 predictive_accuracy_plot = F,
-                                                                 address = F)
-        })
-        output$acc_plot <- renderPlot({
-          MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
-                                                                 rv$classification$samp,
-                                                                 protein_importance_plot = F,
-                                                                 address = F)
-        })
-      }
     },message = "Progress:", value = 0.2, detail = "Training"
     )
   })
@@ -251,13 +264,27 @@ function(session, input, output) {
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
     validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
-    rv$classification$acc_plot
+    if(input$use_h2o){
+      rv$classification$acc_plot
+    }else{
+      MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                             rv$classification$samp,
+                                                             predictive_accuracy_plot = F,
+                                                             address = F)
+    }
   })
   
   output$importance_plot <- renderPlot({
     validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
-    plot_var_imp(data = rv$classification$models, 
+    if(input$use_h2o){
+      plot_var_imp(data = rv$classification$models, 
                  sample = input$s_size)
+    }else{
+      MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
+                                                             rv$classification$samp,
+                                                             protein_importance_plot = F,
+                                                             address = F)
+    }
   })
   
   
@@ -269,7 +296,8 @@ function(session, input, output) {
       plots <- plot_var_imp(data = rv$classification$models, sample = 'all',
                             prots = nrow(rv$classification$models[[1]]$var_imp))
       withProgress({
-        pdf(file = file, height = 10, width = 8)
+        pdf(file = file, height = 9, width = 6.5)
+        print(rv$classification$acc_plot)
         for(i in seq_along(plots)){
           status(sprintf("Plottint %s plot", i), value = i/length(plots),
                  session = session)

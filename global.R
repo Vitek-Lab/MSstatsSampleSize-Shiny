@@ -8,6 +8,7 @@ library(dplyr)
 library(naivebayes)
 library(randomForest)
 library(kernlab)
+library(e1071)
 
 source('functions.R')
 FORMATS <- c("examples", "standard")
