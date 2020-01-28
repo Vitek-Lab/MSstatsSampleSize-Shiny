@@ -209,6 +209,7 @@ function(session, input, output) {
   
   observeEvent(input$run_model,{
     withProgress({
+      browser()
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session)
       )
@@ -239,6 +240,7 @@ function(session, input, output) {
     plot_var_imp(data = rv$classification$models, 
                  sample = input$s_size)
   })
+  
   
   output$download_prot_imp <- downloadHandler(
     filename = sprintf("Protein_Importance_plots_%s.pdf",

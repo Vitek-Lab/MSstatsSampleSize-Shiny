@@ -460,7 +460,17 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
         l <- labs(subtitle = "Model: Random Forest (h2o package)")
         
       } else if (classifier == "nnet"){
-        message("No Clue how to do it")
+        l1 = 0.5
+        l2 = 0
+        rate = 0.010
+        rho = 0.99
+        epochs = 10
+        hidden = c(150,150)
+        activation = "Rectifier"
+        
+        model <- h2o::h2o.deeplearning(x = x, y = y, training_frame = train)
+        perf <- h2o::h2o.performance(model = model, newdata = train)
+        
       } else if (classifier == "svmLinear"){
         model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, max_iterations = iters,
                                seed = seed, disable_training_metrics = F)
@@ -629,9 +639,8 @@ run_classification <- function(sim, inputs, session = session){
                                       laplace = inputs$laplace, eps = inputs$eps_sdev,
                                       session = session)
     plots <- plot_acc(data = classification)
-    plot_imp <- plot_var_imp(data = classification$models)
-    classification <- append(classification, list('acc_plot' = plots,
-                                                  'plot_imp' = plot_imp))
+    #plot_imp <- plot_var_imp(data = classification$models)
+    classification <- append(classification, list('acc_plot' = plots))
   }else{
     classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
                                                  sim_data = sim,
