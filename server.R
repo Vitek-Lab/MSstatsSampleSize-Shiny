@@ -263,26 +263,28 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
+    validate(need(!is.null(rv$classification$models)||(!is.null(rv$classification$res)),
+                  "No Trained Models Found"))
     if(input$use_h2o){
       rv$classification$acc_plot
     }else{
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
                                                              rv$classification$samp,
-                                                             predictive_accuracy_plot = F,
+                                                             protein_importance_plot = F,
                                                              address = F)
     }
   })
   
   output$importance_plot <- renderPlot({
-    validate(need(!is.null(rv$classification$models), "No Trained Models Found"))
+    validate(need(!is.null(rv$classification$models) || !is.null(rv$classification$res),
+                  "No Trained Models Found"))
     if(input$use_h2o){
       plot_var_imp(data = rv$classification$models, 
                  sample = input$s_size)
     }else{
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
                                                              rv$classification$samp,
-                                                             protein_importance_plot = F,
+                                                             predictive_accuracy_plot = F,
                                                              address = F)
     }
   })

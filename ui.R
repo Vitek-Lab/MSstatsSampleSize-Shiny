@@ -78,11 +78,11 @@ dashboardPage(
         #### Box plots and HeatMap ####
         fluidRow(
           box(title = "QC Box Plot", solidHeader = T, status = "primary",
-              width = 6,
+              width = 7,
               plotly::plotlyOutput("global_boxplot")
           ),
           box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
-              width = 6,
+              width = 5,
               plotOutput("mean_sd_plot")
           )
         )
@@ -93,10 +93,10 @@ dashboardPage(
         h1("Simulate datasets"),
         ##### Checkboxes for file Input and set seed options ####
         fluidRow(
-          column(3, checkboxInput(inputId = "upload_params",
-                                  label = "Upload Simulation Parameters from csv")),
-          column(3, checkboxInput(input = "set_seed",
-                                  label = "Set Seed value 1212"))
+          column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
+                                  label = "Upload Simulation Parameters from csv"))),
+          column(3, shinyjs::disabled(checkboxInput(input = "set_seed",
+                                  label = "Set Seed value 1212")))
         ),
         #### File Input to upload a simulation parameter csv ####
         fileInput(input = "param_input", label = "Upload Parameters in specified format",
@@ -173,6 +173,7 @@ dashboardPage(
                          style = "margin-top: 25px;", width = '150px')
         ),
         fluidRow(
+          ##### Model Setup Box #####
           box(id = "model_config", width = 3, status = "primary",
               solidHeader = T, title = "Model Setup",
               selectInput(inputId = "classifier", label = "Select Model to Train",
@@ -200,9 +201,11 @@ dashboardPage(
                            width = '100px'),
               actionButton(inputId = "download_models", label = "Download Models")
           ),
+          ##### Accuracy Box ####
           box(width = 4, title = "Accuracy", status = "info", solidHeader = T,
               plotOutput(outputId = 'acc_plot')
           ),
+          ##### Protein Importance Box ####
           box(width = 5, title = "Protein Importance", status = "success",
               solidHeader = T,
               plotOutput('importance_plot')

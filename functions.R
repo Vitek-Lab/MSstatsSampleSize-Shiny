@@ -91,7 +91,8 @@ explore_data <- function(format, count = NULL, annot = NULL, session = NULL){
     expr = format_summary_table(data = formatted_data$long_data), session = session
   )
   data <- append(formatted_data, plots)
-  data <- append(data, list('sum_table' = sum_table, 'cond_sum_table' = cond_sum_table))
+  data <- append(data, list('sum_table' = as.matrix(sum_table),
+                            'cond_sum_table' = cond_sum_table))
   return(data)
 }
 
@@ -163,7 +164,11 @@ generate_plots_explore <- function(formatted_data = NULL, session = NULL){
                        y = ~log(Abundance), x = ~BioReplicate, color = ~Condition,
                        type = "box") %>%
     plotly::layout(xaxis = list(title="Biological Replicate"), 
-                   yaxis = list(title="Log Protein abundance"))
+                   yaxis = list(title="Log Protein abundance"),
+                   legend = list(orientation = "h",
+                                 xanchor = "center",
+                                 x = 0.5, y = 1.1)) %>%
+    plotly::config(displayModeBar = F)
   
   status(detail = 'Estimating Variance', value = 0.85, session = session)
   est_var <- MSstatsSampleSize::estimateVar(data = formatted_data$wide_data,
@@ -218,7 +223,7 @@ format_summary_table <- function(data = NULL){
   
   summary <- rbind(msruns, biorep)
   rownames(summary) <- c("# of MS runs","# of Biological Replicates")
-  return(summary)
+  return(summary[,which(colSums(summary) > 0)])
 }
 
 #' @title Make pca plots
