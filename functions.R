@@ -29,6 +29,7 @@ show_faults <- function(..., session = NULL){
       stop(Sys.time(),": ",err)
     }
   } else if (!is.null(warn)){
+    warn <- paste(unique(warn), collapse = ", ")
     if(!is.null(session)){
       shiny::showNotification(as.character(warn), duration = 20, type = 'warning',
                               session = session) 
@@ -347,7 +348,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
   if(exp_fc != 'data'){
     status(detail = "Extracting Fold Change Informations", value = 0.15, session = session)
     diff_prots <- unlist(strsplit(list_diff_proteins, ","))
-    exp_fc <- as.numeric(unlist(strsplit(exp_fc,",")))
+    #exp_fc <- as.numeric(unlist(strsplit(exp_fc,",")))
     names(exp_fc) <- unlist(strsplit(fc_name, ","))
   } else{
     diff_prots <- NULL
@@ -419,8 +420,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
   models <- list()
   status(detail = "Getting parameters for H2O", value = 0.1, session = session)
   status(detail = "Initiating H2O Cluster", value = 0.1 , session = session)
-  h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
-                log_dir = config$log_dir, log_level = config$log_level)
+  
   # shiny::showNotification(sprintf("H2O Logs stored at %s", config$log_dir),
   #                         session = session, arg = "message")
   # 
@@ -471,10 +471,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
         epochs = 10
         hidden = c(150,150)
         activation = "Rectifier"
-        
         model <- h2o::h2o.deeplearning(x = x, y = y, training_frame = train)
-        perf <- h2o::h2o.performance(model = model, newdata = train)
-        
       } else if (classifier == "svmLinear"){
         model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, max_iterations = iters,
                                seed = seed, disable_training_metrics = F)
@@ -495,13 +492,11 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
       }
       
       status(detail = "Model training complete", value = new_val+0.2, session = session)
-      ket_qua_default <- NULL
-      if(classifier != "svmLinear")
-        results_cross_validation(model) -> ket_qua_default
+      perf <- h2o::h2o.performance(model = model, newdata = train)
+      
       name_val <- sprintf("Sample%s %s", samp[i],  names(train_x_list)[index])
       var_imp <- h2o::h2o.varimp(model)
-      models[[name_val]] <- list('model'= model, 'lab'=labs,
-                                 'table' = ket_qua_default, 'var_imp' = var_imp)
+      models[[name_val]] <- list('model'= model, 'lab'=labs, 'perf' = perf, 'var_imp' = var_imp)
     }
   }
   return(list('models' = models))
@@ -523,25 +518,6 @@ h2o_config <- function(){
               "log_level" = log_level)) 
 }
 
-
-results_cross_validation <- function(h2o_model) {
-  h2o_model@model$cross_validation_metrics_summary %>% 
-    as.data.frame() %>% 
-    select(-mean, -sd) %>% 
-    t() %>% 
-    as.data.frame() %>% 
-    mutate_all(as.character) %>% 
-    mutate_all(as.numeric) %>% 
-    select(Accuracy = accuracy)%>%#, 
-           #AUC = auc, 
-           #Precision = precision, 
-           #Specificity = specificity, 
-           #Recall = recall, 
-           #Logloss = logloss) %>% 
-    return()
-}
-
-
 plot_acc <- function(data, xlim = c(0,1)){
   model_data <- data$models
   df <- rbindlist(lapply(names(model_data), function(x){
@@ -553,7 +529,7 @@ plot_acc <- function(data, xlim = c(0,1)){
                sample = as.numeric(gsub("[[:alpha:]]",'',strs[1])),
                algorithm = alg,
                err = err,
-               Mean_acc = mean(z$table$Accuracy))
+               Mean_acc = mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy))
   }))
   
   df <- df[,.(acc = mean(Mean_acc)),.(sample, algorithm)]
@@ -569,9 +545,12 @@ plot_acc <- function(data, xlim = c(0,1)){
   return(p)
 }
 
-plot_var_imp <- function(data, sample = 'all', prots = 10){
+plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
   
   samp <- names(data)
+  if(alg == "svmLinear"){
+    samp <- names(data$models)
+  }
     
   if(sample != 'all'){
     req_samp <- unique(unlist(strsplit(samp, ' ')))
@@ -614,18 +593,6 @@ plot_var_imp <- function(data, sample = 'all', prots = 10){
   names(g) <- dt[,unique(sample_size)]
   
   return(g)
-}
-
-plot_results <- function(df_results) {
-  df_results %>% 
-    tidyr::gather(Metrics, Values) %>% 
-    ggplot(aes(Metrics, Values, fill = Metrics, color = Metrics)) +
-    geom_boxplot(alpha = 0.3, show.legend = FALSE) + 
-    theme(plot.margin = unit(c(1, 1, 1, 1), "cm")) +    
-    scale_y_continuous(labels = scales::percent) + 
-    facet_wrap(~ Metrics, scales = "free") + 
-    labs(title = "Model Performance by Some Criteria Selected", y = NULL)+
-    theme_minimal()
 }
 
 #### WRAPPER FOR CLASSIFICATION ######

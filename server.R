@@ -28,10 +28,12 @@ function(session, input, output) {
                             session = session),
         session = session
       )
+      
+      B_GROUP <<- data$annot_data[,unique(Condition)] 
       updateSliderInput(session = session, inputId = "prot_num",
                         min = 1, max = data$n_prot, value = data$n_prot)
       updateSelectInput(session = session, inputId = "b_group",
-                        choices = data$annot_data[,unique(Condition)])
+                        choices = B_GROUP)
       },
     message = "Progress:", value = 0.2, detail = "Loading Data...")
     shinyjs::enable("simulate")
@@ -81,6 +83,10 @@ function(session, input, output) {
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "b_group",
                            condition = input$exp_fc != T)
+    shinyjs::toggleElement(id = 'grp',
+                           condition = input$exp_fc != T)
+   shinyjs::toggleElement(id = 'grp_choices', 
+                           condition  = input$exp_fc != T)
   })
 
   observeEvent(input$sel_sim_prot,{
@@ -90,6 +96,13 @@ function(session, input, output) {
                            condition = input$sel_sim_prot != "proportion")
   })
   
+  
+  observeEvent(input$b_group,{
+    choices <- B_GROUP[!B_GROUP %in% input$b_group]
+    updateTextInput(session = session, inputId = 'grp_choices',
+                    value = paste(choices, collapse = ","))
+  })
+
   observeEvent(input$sim_val,{
     shinyjs::toggleElement(id = "n_val_samp_grp",
                            condition = input$sim_val == T)
@@ -106,13 +119,19 @@ function(session, input, output) {
   simulations <- eventReactive(input$simulate,{
     #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
+      #browser()
       exp_fc <- ifelse(input$exp_fc, 'data', "")
+      if(exp_fc == ''){
+        fc_val <- as.numeric(unlist(strsplit(input$grp, ',|, ')))
+        validate(need(any(fc_val > 1), "Fold Change Values"))
+        exp_fc <- c(1, fc_val)
+      }
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
-                      fc_name = input$exp_fc_name,
+                      fc_name = c(input$b_group, input$grp_choices),
                       list_diff_proteins = input$diff_prot,
                       sel_simulated_proteins = input$sel_sim_prot,
                       prot_proportion = input$prot_prop,
@@ -253,6 +272,7 @@ function(session, input, output) {
   #### Run Classification #####
   observeEvent(input$run_model,{
     withProgress({
+      browser()
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session),
         session = session
@@ -263,11 +283,11 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    validate(need(!is.null(rv$classification$models)||(!is.null(rv$classification$res)),
-                  "No Trained Models Found"))
     if(input$use_h2o){
+      validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
       rv$classification$acc_plot
     }else{
+      validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
                                                              rv$classification$samp,
                                                              protein_importance_plot = F,
@@ -276,19 +296,19 @@ function(session, input, output) {
   })
   
   output$importance_plot <- renderPlot({
-    validate(need(!is.null(rv$classification$models) || !is.null(rv$classification$res),
-                  "No Trained Models Found"))
     if(input$use_h2o){
-      plot_var_imp(data = rv$classification$models, 
-                 sample = input$s_size)
+      browser()
+      validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
+      show_faults(plot_var_imp(data = rv$classification$models, sample = input$s_size),
+                  session)
     }else{
+      validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
                                                              rv$classification$samp,
                                                              predictive_accuracy_plot = F,
                                                              address = F)
     }
   })
-  
   
   #### Download buttons for models plots/and data #####
   output$download_prot_imp <- downloadHandler(

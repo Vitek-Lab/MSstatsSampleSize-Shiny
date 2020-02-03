@@ -34,6 +34,7 @@ SOLVER <- c("AUTO", "IRLSM", "L_BFGS", "COORDINATE_DESCENT_NAIVE", "COORDINATE_D
 
 LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie", "ologit")
 
+B_GROUP <- ""
 
 config <- h2o_config()
 h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
