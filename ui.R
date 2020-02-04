@@ -113,8 +113,11 @@ dashboardPage(
                             value = T),
               selectInput(inputId = "b_group", label = "Baseline Group",
                           choices = NULL),
+              textInput(inputId = 'grp_choices', value = NULL,
+                        label = "Conditions require Fold Value"),
+              textInput(inputId = 'grp', label  = 'Fold Value'),
               textInput(inputId = "diff_prot", label = "List Diff Protein",
-                        value = NULL),
+                        value = NULL, placeholder = "List of comma separated Proteins"),
               selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
                           choices = c("proportion", "number"),
                           selected = "proportion"),
@@ -199,7 +202,7 @@ dashboardPage(
                           min = 0.01, value = 0.01, max = 1),
               actionButton(inputId = "run_model", label = "Train Model",
                            width = '100px'),
-              actionButton(inputId = "download_models", label = "Download Models")
+              downloadButton(outputId = "download_models", label = "Download Models")
           ),
           ##### Accuracy Box ####
           box(width = 4, title = "Accuracy", status = "info", solidHeader = T,
