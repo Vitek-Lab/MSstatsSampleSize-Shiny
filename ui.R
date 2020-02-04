@@ -202,7 +202,7 @@ dashboardPage(
                           min = 0.01, value = 0.01, max = 1),
               actionButton(inputId = "run_model", label = "Train Model",
                            width = '100px'),
-              actionButton(inputId = "download_models", label = "Download Models")
+              downloadButton(outputId = "download_models", label = "Download Models")
           ),
           ##### Accuracy Box ####
           box(width = 4, title = "Accuracy", status = "info", solidHeader = T,

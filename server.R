@@ -123,7 +123,7 @@ function(session, input, output) {
       exp_fc <- ifelse(input$exp_fc, 'data', "")
       if(exp_fc == ''){
         fc_val <- as.numeric(unlist(strsplit(input$grp, ',|, ')))
-        validate(need(any(fc_val > 1), "Fold Change Values"))
+        validate(need(all(fc_val > 1), "Fold Change Values Should be greater than 1"))
         exp_fc <- c(1, fc_val)
       }
       data <- show_faults({
@@ -272,7 +272,6 @@ function(session, input, output) {
   #### Run Classification #####
   observeEvent(input$run_model,{
     withProgress({
-      browser()
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session),
         session = session
@@ -297,7 +296,6 @@ function(session, input, output) {
   
   output$importance_plot <- renderPlot({
     if(input$use_h2o){
-      browser()
       validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
       show_faults(plot_var_imp(data = rv$classification$models, sample = input$s_size),
                   session)
@@ -331,11 +329,12 @@ function(session, input, output) {
   )
   
   
-  observeEvent(input$download_models, {
-    fileName <- sprintf("Models_%s_%s.rds", input$classifier, format(Sys.time(),"%Y%m%d%H%M%S"))
-    saveRDS(rv$classification, fileName)
-    showNotification(sprintf("File Downloaded at %s --- File Name %s", getwd(), fileName),
-                     duration = 20, type = 'message')
-  })
+  output$download_models <- downloadHandler(
+    filename =  sprintf("Models_%s_%s.rds", input$classifier,
+                        format(Sys.time(), "%Y%m%d%H%M%S")),
+    content = function(file){
+      saveRDS(rv$classification, file = file)
+    }
+  )
   
 }

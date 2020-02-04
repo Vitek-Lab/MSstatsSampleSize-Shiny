@@ -22,8 +22,6 @@ show_faults <- function(..., session = NULL){
   
   if(!is.null(err)){
     if(!is.null(session)){
-      shiny::showNotification(as.character(err), duration = 20, type = 'error',
-                              session = session)
       shiny::validate(shiny::need(is.null(err), as.character(err)))
     } else {
       stop(Sys.time(),": ",err)
@@ -421,11 +419,10 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
   status(detail = "Getting parameters for H2O", value = 0.1, session = session)
   status(detail = "Initiating H2O Cluster", value = 0.1 , session = session)
   
-  # shiny::showNotification(sprintf("H2O Logs stored at %s", config$log_dir),
-  #                         session = session, arg = "message")
-  # 
+  status(detail = sprintf("Running Classifier %s", classifier), session = session,
+         value = 0.1)
   for(i in seq_along(samp)){
-    val <- i/length(samp) - 0.1
+    val <- i/length(samp)
     # shiny::showNotification(sprintf("Classifying Sample %s of %s", i, length(samp)),
     #                         session = session, type = 'message')
     status(detail = sprintf("Classifying Sample %s of %s", i, length(samp)),
@@ -440,7 +437,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
     train_y_list = sim_data[[i]]$simulation_train_Ys
     
     for(index in seq_along(train_x_list)){
-      new_val <- index/length(train_x_list) - 0.1
+      new_val <- index/length(train_x_list)
       status(detail = sprintf("Classifying %s of %s", names(train_x_list)[index],
              length(train_x_list)), session = session, value = new_val)
       train <- data.table(train_x_list[[index]],
@@ -452,8 +449,6 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
       
       #train <- dcast(test, Condition+BioReplicate~Protein, value.var = "Abundance")
       if(classifier == "rf"){
-        status(detail = sprintf("Running Classifier %s", classifier), session = session,
-               value = new_val + 0.1)
         model <- h2o::h2o.randomForest(x = x, y = y, training_frame = train,
                                        validation_frame = valid,
                                        stopping_rounds = 5, stopping_tolerance = 0.001, 
@@ -496,7 +491,8 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
       
       name_val <- sprintf("Sample%s %s", samp[i],  names(train_x_list)[index])
       var_imp <- h2o::h2o.varimp(model)
-      models[[name_val]] <- list('model'= model, 'lab'=labs, 'perf' = perf, 'var_imp' = var_imp)
+      models[[name_val]] <- list('model'= model, 'lab'=labs, 'perf' = perf,
+                                 'var_imp' = var_imp)
     }
   }
   return(list('models' = models))
@@ -504,7 +500,9 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
 
 h2o_config <- function(){
   threads <- as.numeric(Sys.getenv('nthreads'))
-  max_mem <- Sys.getenv("max_mem")
+  max_mem <- NULL
+  mem <- Sys.getenv("max_mem")
+  max_mem <- ifelse(grep('g',mem), mem, max_mem)
   log_dir <- Sys.getenv("log_dir")
   log_level <- Sys.getenv("log_level")
   
@@ -514,7 +512,7 @@ h2o_config <- function(){
   log_dir <- ifelse(log_dir == "", getwd(), log_dir)
   log_level <- ifelse(log_level == "", "INFO", log_level)
   
-  return(list("threads" = threads, "max_mem" = NULL, "log_dir" = log_dir,
+  return(list("threads" = threads, "max_mem" = max_mem, "log_dir" = log_dir,
               "log_level" = log_level)) 
 }
 
@@ -560,9 +558,7 @@ plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
   }
   
   df <- rbindlist(lapply(samp, function(x){
-    dt <- as.data.table(
-      h2o::h2o.varimp(data[[x]]$model)
-    )
+    dt <- as.data.table(data[[x]]$var_imp))
     setorder(dt, -scaled_importance)
     dt$name <- x
     dt
