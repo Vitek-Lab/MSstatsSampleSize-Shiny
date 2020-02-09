@@ -1,100 +1,30 @@
-# Welcome to `designSampleSizeClassification-GUI`
+# Welcome to `MSstatsSampleSize-GUI`
 
 
 ## Introduction
-`designSampleSizeClassfication-GUI` is a graphical user interface that makes accessible the `designSampleSizeClassification` function included in the `MSstats` package.
+`MSstatsSampleSize-GUI` is a web-based graphical user interface that provides a 
+user-friendly way to visualize and report the results from 
+<a href = "https://bioconductor.org/packages/release/bioc/html/MSstatsSampleSize.html" target = "_blank">`MSstatsSampleSize`</a> package
 
-This app enables experimenters without experience with R/programming to use protein-level data from a prior MS-based proteome investigation as a basis for planning future experiments with similar methodologies.
+MSstatsSampleSize is an open-source R package, available in Bioconductor.
+It allows researchers to design optimal MS-based proteomics experiments in terms
+of statistical power and the use of resources. In particular, MSstatsSampleSize
+uses protein-level data from a prior MS-based proteome investigation as a basis
+to plan future experiments with similar methodologies. The software therefore
+significantly contributes to the design of biological and clinical studies that 
+involve replicates.
+
+`MSstatsSampleSize-GUI` was created using <a href = "https://shiny.rstudio.com/" target = "_blank"> `R-Shiny` </a>, a Web Application Framework for R. It enables researchers
+without experience with R/programming to utilize the functions from MSstatsSampleSize.
+
 
 ## Get Started
 
-Begin by importing your dataset from the *Import Data* submenu in the sidebar. Accepted data formats include 1. an R object produced by the `dataProcess` function in MSstats, or 2. Protein abundance/summarised spectral counts and a corresponding sample annotation file in a delimiter-separated format. Example datasets from `MSstatsBioData` are also available from within the app.
-
-Options for changing how data is interpreted are available, allowing the app to adapt to some common formats of summarised protein-level data (e.g. CPTAC datasets processed with the Common Data Analysis) in the *Options* submenu. Basic data preprocessing options including data normalisation and log transformation are available in the *Advanced Options* submenu.
-
-<!-- ## Principal Component Analysis -->
-
-<!-- ```{r, echo=FALSE, dpi=300, out.width="50%"} -->
-<!-- require(ggplot2) -->
-<!-- require(ggbiplot) -->
-<!-- debug_pca<-prcomp(debug_tprot2, center = TRUE,scale. = TRUE) -->
-<!-- ggbiplot(debug_pca, ellipse=TRUE, var.axes=FALSE, groups=debug_sample_annotation[!duplicated(debug_sample_annotation),][,2]) -->
-
-<!-- ``` -->
-
-<!-- ## Experiment Simulation Plots -->
-
-<!-- ### Heatmap -->
-<!-- ```{r, echo=FALSE, dpi=300, out.width="50%"} -->
-<!-- require(RColorBrewer) -->
-<!-- require(viridis) -->
-<!-- hm.palette <- colorRampPalette(rev(brewer.pal(9, 'RdBu')), space='Lab') -->
-<!-- ggplot(data=debug_gg_meanPA, aes(x=Var1, y=Var2, fill=value)) + -->
-<!--  geom_tile() + -->
-<!--  coord_equal() + -->
-<!--  scale_fill_viridis() -->
-
-<!-- ``` -->
-
-<!-- ### Lineplot (formula = y~x^3, xvar= Sample Size) -->
-<!-- ```{r, echo=FALSE, dpi=300, out.width="50%"} -->
-<!-- ## ggplot needs a long format dataframe -->
-<!-- ## get the mean accuracy -->
-<!-- meandata <- as.data.frame(debug_result$meanPA) -->
-<!-- meandata$Protein_number <- rownames(meandata) -->
-<!-- meandata <- reshape2::melt(meandata, id.vars = "Protein_number", variable.name = "Train_size", value.name = "mean") -->
-<!-- debug_meandata<<-meandata -->
-<!-- ## get the variance -->
-<!-- vardata <- as.data.frame(debug_result$varPA) -->
-<!-- vardata$Protein_number <- rownames(vardata) -->
-<!-- vardata <- reshape2::melt(vardata, id.vars = "Protein_number", variable.name = "Train_size", value.name = "var") -->
-
-<!-- ## perform the join -->
-<!-- plotdata <- merge(meandata, vardata, all=TRUE) -->
-<!-- # get standard deviation column -->
-<!-- plotdata$sd <- sqrt(plotdata$var) -->
-<!-- # make sure train size is numeric -->
-<!-- plotdata$Train_size <- gsub("tra", "", plotdata$Train_size) -->
-<!-- plotdata$Train_size <- as.numeric(as.character(plotdata$Train_size))   -->
-<!-- # make sure Protein_number is ordered factor -->
-<!-- plotdata$Protein_number <- gsub("prot", "", plotdata$Protein_number) -->
-<!-- plotdata$Protein_number <- factor(plotdata$Protein_number, levels = sort(as.numeric(unique(plotdata$Protein_number)))) -->
-
-<!-- ggplot(data = plotdata, aes(x= Train_size, y= mean, group = Protein_number, colour = Protein_number)) + -->
-<!-- geom_point() + -->
-<!-- geom_smooth(method = lm, formula = y ~ poly(x, 3), se = FALSE) + -->
-<!-- labs(title="Sample size estimation", x="Sample size", y='Mean accuracy') + -->
-<!-- guides(color=guide_legend(title="Protein number")) -->
-<!-- ``` -->
-
-<!-- ### Lineplot (formula = y~x^3, xvar= Protein Number) -->
-<!-- ```{r, echo=FALSE, dpi=300, out.width="50%"} -->
-<!-- ## ggplot needs a long format dataframe -->
-<!-- ## get the mean accuracy -->
-<!-- meandata <- as.data.frame(debug_result$meanPA) -->
-<!-- meandata$Protein_number <- rownames(meandata) -->
-<!-- meandata <- reshape2::melt(meandata, id.vars = "Protein_number", variable.name = "Train_size", value.name = "mean") -->
-<!-- debug_meandata<<-meandata -->
-<!-- ## get the variance -->
-<!-- vardata <- as.data.frame(debug_result$varPA) -->
-<!-- vardata$Protein_number <- rownames(vardata) -->
-<!-- vardata <- reshape2::melt(vardata, id.vars = "Protein_number", variable.name = "Train_size", value.name = "var") -->
-
-<!-- ## perform the join -->
-<!-- plotdata <- merge(meandata, vardata, all=TRUE) -->
-<!-- # get standard deviation column -->
-<!-- plotdata$sd <- sqrt(plotdata$var) -->
-<!-- # make sure train size is numeric -->
-<!-- plotdata$Train_size <- gsub("tra", "", plotdata$Train_size) -->
-<!-- plotdata$Train_size <- as.numeric(as.character(plotdata$Train_size))   -->
-<!-- # make sure Protein_number is ordered factor -->
-<!-- plotdata$Protein_number <- gsub("prot", "", plotdata$Protein_number) -->
-<!-- plotdata$Protein_number <- factor(plotdata$Protein_number, levels = sort(as.numeric(unique(plotdata$Protein_number)))) -->
-
-<!-- ggplot(data = plotdata, aes(x= Protein_number, y= mean, group = Train_size, colour = Train_size)) + -->
-<!-- geom_point() + -->
-<!-- geom_smooth(method = lm, formula = y ~ poly(x, 3), se = FALSE) + -->
-<!-- labs(title="Sample size estimation", x="Protein number", y='Mean accuracy') + -->
-<!-- guides(color=guide_legend(title="Sample size")) -->
-<!-- ``` -->
-
+Begin by importing your dataset from the *Import Data* submenu in the sidebar. 
+Accepted data formats include.  
+**1.** An R object produced by the <a href = "https://bioconductor.org/packages/release/bioc/manuals/MSstats/man/MSstats.pdf"
+target = "_blank">`dataProcess`</a> function in MSstats  
+**2.** Protein abundance/summarised spectral counts and a corresponding sample 
+annotation file in a delimiter-separated format.  
+  
+Example datasets from <a href = "https://bioconductor.org/packages/release/data/experiment/html/MSstatsBioData.html" target = "_blank">`MSstatsBioData`</a> are also available from within the app.
