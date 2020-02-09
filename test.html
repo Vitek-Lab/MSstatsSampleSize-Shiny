@@ -1,0 +1,120 @@
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* {
+  box-sizing: border-box;
+}
+
+/* Create two equal columns that floats next to each other */
+.column {
+  float: left;
+  width: 50%;
+  padding: 10px;
+}
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+</style>
+</head>
+<body>
+
+<h2> Import Data</h2>
+<p> Begin by importing your dataset from the Import Data submenu in the sidebar</p>
+
+<div class="row">
+  <div class="column">
+    <h2>Protein Abundance File</h2>
+    <p>This must be a csv file in the <b>wide format</b>. Rows are proteins, columns are 
+    Biological replicates or samples, cells are protein  abundances. The following
+    image is an example, example data file can be found <a href = "https://github.com/Vitek-Lab/MSstatsSampleSize-Shiny/blob/master/OV_SRM_train.csv " target="_blank"><b>here</b></a>
+    </p>
+    <img src="ab.PNG" width="550" height="300">
+  </div>
+  <div class="column">
+    <h2> Annotation File</h2>
+    <p> This must be a csv file in the <b>long format</b>. It includes columns BioReplicate
+    for sample ID and Condition for group information. BioReplicate information
+    should be the same as the column names of Preliminary data. The following
+    image is an example, example data file can be found <a href = "https://github.com/Vitek-Lab/MSstatsSampleSize-Shiny/blob/master/OV_SRM_train_annotation.csv" target="_blank">
+    <b>here</b></a>
+    </p>
+    <img src="an.PNG" width="200" height="375">
+
+  </div>
+</div>
+<p>An example dataset from `MSstatsSampleSize` is also available from within the
+app. Click Select Data type and select Example from MStatsSampleSize to start 
+exploring `MSstatsSampleSize-GUI`.
+</p>
+</body>
+</html>
+
+
+

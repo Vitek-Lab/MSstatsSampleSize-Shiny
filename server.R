@@ -1,8 +1,10 @@
 
 function(session, input, output) {
   
+  shinyhelper::observe_helpers(help_dir = "help_mds")
+  
   onStop(function() {
-    try({h2o.shutdown(prompt = FALSE)}, silent=TRUE)
+    try({h2o::h2o.shutdown(prompt = FALSE)}, silent=TRUE)
   })
   
   rv <- reactiveValues()
@@ -17,7 +19,7 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "standard_annot",
                            condition = input$data_format == "standard")
   })
-  
+
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
     withProgress({
@@ -83,9 +85,11 @@ function(session, input, output) {
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "b_group",
                            condition = input$exp_fc != T)
-    shinyjs::toggleElement(id = 'grp',
-                           condition = input$exp_fc != T)
-   shinyjs::toggleElement(id = 'grp_choices', 
+    # shinyjs::toggleElement(id = 'grp',
+    #                        condition = input$exp_fc != T)
+    # shinyjs::toggleElement(id = 'grp_choices', 
+    #                        condition  = input$exp_fc != T)
+    shinyjs::toggleElement(id = "fc_values", 
                            condition  = input$exp_fc != T)
   })
 
@@ -101,6 +105,16 @@ function(session, input, output) {
     choices <- B_GROUP[!B_GROUP %in% input$b_group]
     updateTextInput(session = session, inputId = 'grp_choices',
                     value = paste(choices, collapse = ","))
+    
+    group <- c(input$b_group, 
+               sprintf("%s - %s", choices, input$b_group))
+    fc_data <<- data.table(Group = group,
+                           `Fold Change Value` = c(1, rep(NA, length(group)-1)))
+    output$fc_values <- DT::renderDT(fc_data, rownames = F,
+                                     options = list(dom = 't'), selection = 'none',
+                                     editable = list(target = 'cell',
+                                                     disable = list(columns = 0)),
+                                     class = 'cell-border stripe')
   })
 
   observeEvent(input$sim_val,{
@@ -114,6 +128,20 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "param_box",
                            condition = input$upload_params != T)
   })
+  
+  
+  proxy = DT::dataTableProxy('fc_values')
+  
+  observeEvent(input$fc_values_cell_edit,{
+    #browser()
+    info <- input$fc_values_cell_edit
+    i <-  info$row
+    j <- info$col
+    v <-  info$value
+    fc_data[i, j] <<- DT::coerceValue(v, fc_data[i, j])
+    replaceData(proxy, fc_data, resetPaging = FALSE)  # important
+  })
+  
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
@@ -217,9 +245,9 @@ function(session, input, output) {
   #### Toggle switches and control for selectInputs in Analyze Tab ####
   observeEvent(input$n_samp_grp,{
     vals <- unlist(strsplit(input$n_samp_grp, ","))
-    vals <- sprintf("Sample%s", vals)
+    samp_size <<- sprintf("Sample%s", vals)
     updateSelectInput(session = session, inputId = "s_size", label = "Sample Size",
-                      choices = vals)
+                      choices = samp_size)
   })
   
   ##### Toggle switches based on input classifier for H2o #####
@@ -280,11 +308,29 @@ function(session, input, output) {
     )
   })
   
+  
+  observeEvent(input$back_varimp, {
+    curr <- which(samp_size == input$s_size)
+    if(curr > 1){
+      updateSelectInput(session = session, "s_size",
+                        choices = samp_size, selected = samp_size[curr - 1])
+    }
+  })
+  
+  observeEvent(input$fwd_varimp,{
+    curr <- which(samp_size == input$s_size)
+    if(curr >= 1){
+      updateSelectInput(session = session, "s_size",
+                        choices = samp_size, selected = samp_size[curr + 1])
+    }
+  })
+  
+  
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
     if(input$use_h2o){
       validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
-      rv$classification$acc_plot
+      show_faults(plot_acc(data = rv$classification), session = session)
     }else{
       validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
@@ -298,7 +344,7 @@ function(session, input, output) {
     if(input$use_h2o){
       validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
       show_faults(plot_var_imp(data = rv$classification$models, sample = input$s_size),
-                  session)
+                  session = session)
     }else{
       validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
@@ -310,14 +356,14 @@ function(session, input, output) {
   
   #### Download buttons for models plots/and data #####
   output$download_prot_imp <- downloadHandler(
-    filename = sprintf("Protein_Importance_plots_%s.pdf",
+    filename = sprintf("plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <- plot_var_imp(data = rv$classification$models, sample = 'all',
                             prots = nrow(rv$classification$models[[1]]$var_imp))
       withProgress({
         pdf(file = file, height = 9, width = 6.5)
-        print(rv$classification$acc_plot)
+        print(plot_acc(data = rv$classification))
         for(i in seq_along(plots)){
           status(sprintf("Plottint %s plot", i), value = i/length(plots),
                  session = session)

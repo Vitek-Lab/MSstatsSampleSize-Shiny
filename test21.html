@@ -1,0 +1,52 @@
+<html>
+<style>
+#page-wrap { width: 80%; margin: 60px auto; }
+#page-wrap > div { margin: 0 50px 0; min-width: 500px; width: 100%; }
+
+.group:after {
+     visibility: hidden;
+     display: block;
+     font-size: 0;
+     content: " ";
+     clear: both;
+     height: 0;
+     }
+.group { display: inline-block; }
+
+#nicolas-gallagher {
+            position: relative; 
+            background: #eee; 
+            z-index: 1; 
+            width: 100%; 
+        }
+        #nicolas-gallagher .col { 
+            position: relative; 
+            width: 50%; 
+            padding: 3%; 
+            float: left; 
+        }
+        #nicolas-gallagher .col:nth-child(1) { left: 50%; }
+        #nicolas-gallagher .col:nth-child(2) { left: 0; }
+        #nicolas-gallagher:before, #nicolas-gallagher:after {
+           content: "";
+           position: absolute;
+           z-index: -1;
+           top: 0;
+           left: 50%;
+           width: 50%;
+           height: 100%;
+           background: #ccc;
+        }
+        #nicolas-gallagher:after {
+           left: 50%;
+           background: #eee;
+        }
+
+</style>
+<div id="page-wrap">    
+  <div id="nicolas-gallagher" class="group">
+            <div class="col"><h3>I am listed first in source order.</h3><p>Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.</p></div>
+            <div class="col"><p>Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper. Aenean ultricies mi vitae est. Mauris placerat eleifend leo.</p></div>
+        </div>
+</div>
+</html>
