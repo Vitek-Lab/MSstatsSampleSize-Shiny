@@ -1,14 +1,18 @@
 
 function(session, input, output) {
   
+  # enables the helper functionality in the UI
+  shinyhelper::observe_helpers(help_dir = "help_mds")
+  
+  # stop the h2o cluster once the app is shutdown
   onStop(function() {
-    try({h2o.shutdown(prompt = FALSE)}, silent=TRUE)
+    try({h2o::h2o.shutdown(prompt = F)}, silent = T)
   })
   
+  # List of reactive values
   rv <- reactiveValues()
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
-  rv <- reactiveValues()
   #### Toggle control for sidebar ####
   # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
@@ -17,7 +21,7 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "standard_annot",
                            condition = input$data_format == "standard")
   })
-  
+
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
     withProgress({
@@ -28,8 +32,9 @@ function(session, input, output) {
                             session = session),
         session = session
       )
-      
+      # Create a global variable for dynamic ui element
       B_GROUP <<- data$annot_data[,unique(Condition)] 
+      # update the slider input with the maximum number of proteins found in the dataset
       updateSliderInput(session = session, inputId = "prot_num",
                         min = 1, max = data$n_prot, value = data$n_prot)
       updateSelectInput(session = session, inputId = "b_group",
@@ -73,22 +78,24 @@ function(session, input, output) {
   
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
-    updateTabItems(session = session, "tabs", selected = "explore_data")
+    updateTabsetPanel(session = session, "myNavBar", selected = "Explore Data")
   })
   #### Toggle control for simulate data tab ####
+  # toggle the elements that are needed when default fold change is not selected
   observeEvent(input$exp_fc,{
     shinyjs::toggleElement(id = "diff_prot",
                            condition = input$exp_fc != T)
-    shinyjs::toggleElement(id = "exp_fc_name",
+    shinyjs::toggleElement(id = "diff_prot_help",
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "b_group",
                            condition = input$exp_fc != T)
-    shinyjs::toggleElement(id = 'grp',
+    shinyjs::toggleElement(id = "b_group_help",
                            condition = input$exp_fc != T)
-   shinyjs::toggleElement(id = 'grp_choices', 
+    shinyjs::toggleElement(id = "fc_values", 
                            condition  = input$exp_fc != T)
   })
-
+  
+  # toggle between number and proportion of the proteins
   observeEvent(input$sel_sim_prot,{
     shinyjs::toggleElement(id = "prot_prop",
                            condition = input$sel_sim_prot == "proportion")
@@ -96,15 +103,61 @@ function(session, input, output) {
                            condition = input$sel_sim_prot != "proportion")
   })
   
-  
+  # Fold Change Editable table #
+  # render the fold change datatable, and update the baseline groups as selected
+  # from the drop down menu provide in the UI
   observeEvent(input$b_group,{
     choices <- B_GROUP[!B_GROUP %in% input$b_group]
-    updateTextInput(session = session, inputId = 'grp_choices',
-                    value = paste(choices, collapse = ","))
+    
+    group <- c(input$b_group, 
+               sprintf("%s - %s", choices, input$b_group))
+    #create a global table
+    fc_values <<- data.table(Group = group,
+                             `Fold Change Value` = c(1, 
+                                                     rep(NA, length(group)-1)),
+                             orig_group = c(input$b_group, as.character(choices)))
+    # render editable table to ui
+    output$fc_values <- DT::renderDT(fc_values[-1], rownames = F,
+                                     options = list(dom = 't',
+                                                    columnDefs = list(list(targets = c(2),
+                                                           visible = F))),
+                                     selection = 'none',
+                                     editable = list(target = 'cell',
+                                                     disable = list(columns = 0)),
+                                     class = 'cell-border stripe')
   })
-
+  
+  proxy = DT::dataTableProxy('fc_values')
+  
+  # Record the changes to the cell and update the table
+  observeEvent(input$fc_values_cell_edit,{
+    info <- input$fc_values_cell_edit
+    info$col <- 2 # hardcoded, since renderDT take column indexed 0 to N
+    info$value <- as.numeric(info$value)
+    
+    if(is.na(info$value)){
+      er <- sprintf("Only Numeric Values accepted as Fold Change values, found: %s",
+                    info$value)
+      showNotification(er, duration = 15, id = "error",
+                       type = "error", session = session)
+      validate(need(info$value, "Only Numeric Values accepted"))
+    }
+    
+    if(info$value <= 1){
+      showNotification("Please enter values greater than baseline group", duration = 15,
+                       type = "error", id = "error", session = session)
+      validate(need(as.numeric(info$value) > 1,
+                    "Please enter values greater than baseline group, i.e values > 1"))
+    }
+    fc_values <<- DT::editData(fc_values,info)
+    DT::replaceData(proxy, fc_values, resetPaging = F, rownames = F)  # important
+  })
+  
+  # toggle the validation input ui 
   observeEvent(input$sim_val,{
     shinyjs::toggleElement(id = "n_val_samp_grp",
+                           condition = input$sim_val == T)
+    shinyjs::toggleElement(id = "n_val_samp_grp_help",
                            condition = input$sim_val == T)
   })
   
@@ -119,19 +172,15 @@ function(session, input, output) {
   simulations <- eventReactive(input$simulate,{
     #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
-      #browser()
-      exp_fc <- ifelse(input$exp_fc, 'data', "")
-      if(exp_fc == ''){
-        fc_val <- as.numeric(unlist(strsplit(input$grp, ',|, ')))
-        validate(need(all(fc_val > 1), "Fold Change Values Should be greater than 1"))
-        exp_fc <- c(1, fc_val)
-      }
+      exp_fc <- ifelse(input$exp_fc, 'data', '')
+      if(exp_fc == '')
+        exp_fc <- fc_values
+      
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
-                      fc_name = c(input$b_group, input$grp_choices),
                       list_diff_proteins = input$diff_prot,
                       sel_simulated_proteins = input$sel_sim_prot,
                       prot_proportion = input$prot_prop,
@@ -217,9 +266,9 @@ function(session, input, output) {
   #### Toggle switches and control for selectInputs in Analyze Tab ####
   observeEvent(input$n_samp_grp,{
     vals <- unlist(strsplit(input$n_samp_grp, ","))
-    vals <- sprintf("Sample%s", vals)
+    samp_size <<- sprintf("Sample%s", vals)
     updateSelectInput(session = session, inputId = "s_size", label = "Sample Size",
-                      choices = vals)
+                      choices = samp_size)
   })
   
   ##### Toggle switches based on input classifier for H2o #####
@@ -271,6 +320,7 @@ function(session, input, output) {
   })
   #### Run Classification #####
   observeEvent(input$run_model,{
+    #browser()
     withProgress({
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session),
@@ -278,13 +328,35 @@ function(session, input, output) {
       )
     },message = "Progress:", value = 0.2, detail = "Training"
     )
+    shinyjs::enable("download_models")
+    shinyjs::enable("download_prot_imp")
+    shinyjs::enable("back_varimp")
+    shinyjs::enable("fwd_varimp")
   })
+  
+  
+  observeEvent(input$back_varimp, {
+    curr <- which(samp_size == input$s_size)
+    if(curr > 1){
+      updateSelectInput(session = session, "s_size",
+                        choices = samp_size, selected = samp_size[curr - 1])
+    }
+  })
+  
+  observeEvent(input$fwd_varimp,{
+    curr <- which(samp_size == input$s_size)
+    if(curr >= 1){
+      updateSelectInput(session = session, "s_size",
+                        choices = samp_size, selected = samp_size[curr + 1])
+    }
+  })
+  
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
     if(input$use_h2o){
       validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
-      rv$classification$acc_plot
+      show_faults(plot_acc(data = rv$classification), session = session)
     }else{
       validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
@@ -295,10 +367,11 @@ function(session, input, output) {
   })
   
   output$importance_plot <- renderPlot({
+    #browser()
     if(input$use_h2o){
       validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
       show_faults(plot_var_imp(data = rv$classification$models, sample = input$s_size),
-                  session)
+                  session = session)
     }else{
       validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
       MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
@@ -310,14 +383,14 @@ function(session, input, output) {
   
   #### Download buttons for models plots/and data #####
   output$download_prot_imp <- downloadHandler(
-    filename = sprintf("Protein_Importance_plots_%s.pdf",
+    filename = sprintf("plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <- plot_var_imp(data = rv$classification$models, sample = 'all',
                             prots = nrow(rv$classification$models[[1]]$var_imp))
       withProgress({
         pdf(file = file, height = 9, width = 6.5)
-        print(rv$classification$acc_plot)
+        print(plot_acc(data = rv$classification))
         for(i in seq_along(plots)){
           status(sprintf("Plottint %s plot", i), value = i/length(plots),
                  session = session)
@@ -337,4 +410,8 @@ function(session, input, output) {
     }
   )
   
+  observeEvent(input$debug,{
+    rdsList <- list(cl = rv$classification)
+    saveRDS(rdsList, 'test.rds')
+  })
 }

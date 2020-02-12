@@ -22,6 +22,8 @@ show_faults <- function(..., session = NULL){
   
   if(!is.null(err)){
     if(!is.null(session)){
+      shiny::showNotification(as.character(err), duration = 20, type = 'warning',
+                              session = session, id = "error") 
       shiny::validate(shiny::need(is.null(err), as.character(err)))
     } else {
       stop(Sys.time(),": ",err)
@@ -29,7 +31,7 @@ show_faults <- function(..., session = NULL){
   } else if (!is.null(warn)){
     warn <- paste(unique(warn), collapse = ", ")
     if(!is.null(session)){
-      shiny::showNotification(as.character(warn), duration = 20, type = 'warning',
+      shiny::showNotification(as.character(warn), duration = 3, type = 'warning',
                               session = session) 
       return(res)
     } else {
@@ -136,11 +138,6 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   status(detail = 'Merging Abundance & Spectral Counts with Annotations', 
          value = 0.7, session = session)
   data <- merge(as.data.table(data), annot, by = 'BioReplicate')
-  
-  if(!is.null(session)){
-    shiny::showNotification('Data Import Completed', duration = 5, 
-                            type = 'message')
-  }
   
   return(list('long_data' = data, 'wide_data' = wide, 'annot_data' = annot,
               'n_prot' = nrow(wide[,.N, Protein]), 
@@ -337,7 +334,7 @@ do_prcomp <- function(sim_x, sim_y){
 #' @description A wrapper function for the `simulateDataset` function from the 
 #' MSstatsSampleSize package which enables simulating datasets for running experiments
 #' @param data 
-simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_name,
+simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                           list_diff_proteins, sel_simulated_proteins, 
                           prot_proportion, prot_number, samples_per_group, sim_valid,
                           valid_samples_per_grp, session = NULL){
@@ -346,14 +343,18 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
   if(exp_fc != 'data'){
     status(detail = "Extracting Fold Change Informations", value = 0.15, session = session)
     diff_prots <- unlist(strsplit(list_diff_proteins, ","))
-    #exp_fc <- as.numeric(unlist(strsplit(exp_fc,",")))
-    names(exp_fc) <- unlist(strsplit(fc_name, ","))
+    fc <- exp_fc$`Fold Change Value`
+    names(fc) <- exp_fc$orig_group
   } else{
     diff_prots <- NULL
+    fc <- exp_fc
   }
-  
   status(detail = "Extracting Number of Samples Information", value = 0.2, session = session)
-  samp <- unlist(strsplit(samples_per_group, ','))
+  samp <- as.numeric(unlist(strsplit(samples_per_group, ',')))
+  shiny::validate(shiny::need(all(!is.na(samp)),
+                              sprintf("Samples Per Group need to be numeric values, Found : %s",
+                                      samples_per_group)),
+                  shiny::need(all(samp >= 50), "All samples Need to be >= 50"))
   
   if(sim_valid){
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
@@ -366,15 +367,15 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc, fc_
   
   sim <- list()
   for(i in samp){
-    sim[[i]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
+    sim[[paste(i)]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
                                                    annotation = annot,
                                                    num_simulations = num_simulation,
-                                                   expected_FC = exp_fc,
+                                                   expected_FC = fc,
                                                    list_diff_proteins =  diff_prots,
                                                    select_simulated_proteins = sel_simulated_proteins,
                                                    protein_proportion = prot_proportion,
                                                    protein_number = prot_number,
-                                                   samples_per_group = as.numeric(i),
+                                                   samples_per_group = i,
                                                    simulate_valid = as.logical(sim_valid),
                                                    valid_samples_per_group = valid_samples_per_grp)
   }
@@ -499,21 +500,21 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC
 }
 
 h2o_config <- function(){
-  threads <- as.numeric(Sys.getenv('nthreads'))
-  max_mem <- NULL
+  config <- list()
+  config$threads <- as.numeric(Sys.getenv('nthreads'))
+  config$max_mem <- NULL
   mem <- Sys.getenv("max_mem")
-  max_mem <- ifelse(grep('g',mem), mem, max_mem)
-  log_dir <- Sys.getenv("log_dir")
-  log_level <- Sys.getenv("log_level")
+  if(mem!= '')
+    config$max_mem <- mem
+  config$log_dir <- Sys.getenv("log_dir")
+  config$log_level <- Sys.getenv("log_level")
   
-  threads <- ifelse(is.na(threads), -1, threads)
-  max_mem <- ifelse(as.logical(grep("g",max_mem)), max_mem, NULL)
+  config$threads <- ifelse(is.na(config$threads), -1, config$threads)
   
-  log_dir <- ifelse(log_dir == "", getwd(), log_dir)
-  log_level <- ifelse(log_level == "", "INFO", log_level)
+  config$log_dir <- ifelse(config$log_dir == "", getwd(), config$log_dir)
+  config$log_level <- ifelse(config$log_level == "", "INFO", config$log_level)
   
-  return(list("threads" = threads, "max_mem" = max_mem, "log_dir" = log_dir,
-              "log_level" = log_level)) 
+  return(config) 
 }
 
 plot_acc <- function(data, xlim = c(0,1)){
@@ -558,7 +559,7 @@ plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
   }
   
   df <- rbindlist(lapply(samp, function(x){
-    dt <- as.data.table(data[[x]]$var_imp))
+    dt <- as.data.table(data[[x]]$var_imp)
     setorder(dt, -scaled_importance)
     dt$name <- x
     dt
@@ -603,9 +604,8 @@ run_classification <- function(sim, inputs, session = session){
                                       link = inputs$link, min_sdev = inputs$min_sdev,
                                       laplace = inputs$laplace, eps = inputs$eps_sdev,
                                       session = session)
-    plots <- plot_acc(data = classification)
+    #plots <- plot_acc(data = classification)
     #plot_imp <- plot_var_imp(data = classification$models)
-    classification <- append(classification, list('acc_plot' = plots))
   }else{
     classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
                                                  sim_data = sim,

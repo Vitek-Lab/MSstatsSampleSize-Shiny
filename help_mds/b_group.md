@@ -1,0 +1,1 @@
+One group must be selected as a baseline and has fold change 1 in the vector. 
