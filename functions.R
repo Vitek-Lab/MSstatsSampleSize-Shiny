@@ -349,9 +349,12 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
     diff_prots <- NULL
     fc <- exp_fc
   }
-  
   status(detail = "Extracting Number of Samples Information", value = 0.2, session = session)
-  samp <- unlist(strsplit(samples_per_group, ','))
+  samp <- as.numeric(unlist(strsplit(samples_per_group, ',')))
+  shiny::validate(shiny::need(all(!is.na(samp)),
+                              sprintf("Samples Per Group need to be numeric values, Found : %s",
+                                      samples_per_group)),
+                  shiny::need(all(samp >= 50), "All samples Need to be >= 50"))
   
   if(sim_valid){
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
@@ -364,7 +367,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
   
   sim <- list()
   for(i in samp){
-    sim[[i]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
+    sim[[paste(i)]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
                                                    annotation = annot,
                                                    num_simulations = num_simulation,
                                                    expected_FC = fc,
@@ -372,7 +375,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                                                    select_simulated_proteins = sel_simulated_proteins,
                                                    protein_proportion = prot_proportion,
                                                    protein_number = prot_number,
-                                                   samples_per_group = as.numeric(i),
+                                                   samples_per_group = i,
                                                    simulate_valid = as.logical(sim_valid),
                                                    valid_samples_per_group = valid_samples_per_grp)
   }

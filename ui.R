@@ -33,7 +33,6 @@ dashboardPage(
       menuItem("Home", tabName = "home", icon = icon("home")),
       #### Data Import Tab ####
       menuItem("Import Data", tabName = "import_data", icon = icon("file-import")),
-      #menuItem("Explore Data", tabName = "explore_data", icon = icon("tv")),
       #### Data Simulation Tab ####
       menuItem("Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
@@ -59,6 +58,7 @@ dashboardPage(
                      theme = shinythemes::shinytheme("spacelab"),
                      box(title = "Data Import Wizard", width = 12,
                          solidHeader = T, status = 'primary',
+                         includeHTML("www/data_import.Rmd"),
                          fluidRow(
                            column(width = 4, 
                                   selectInput("data_format", "Select Data Type",
@@ -92,7 +92,7 @@ dashboardPage(
                      ),
                      box(title = "Example Data", width = 12, solidHeader = T,
                          status = 'primary',
-                         includeHTML("www/test.rmd")) 
+                         includeHTML("www/test.Rmd")) 
                    )
                    ),
                    tabPanel("Explore Data", fluidPage(
@@ -125,11 +125,6 @@ dashboardPage(
                    )
                    )
         )
-      ),
-      ##### Exploration Visuals #####
-      tabItem(
-        tabName = "explore_data",
-        
       ),
       #### Data Simulation Tab #####
       tabItem(

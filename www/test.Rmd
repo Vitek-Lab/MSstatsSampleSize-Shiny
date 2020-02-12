@@ -1,12 +1,3 @@
-<header>
-<h1> Import Data </h1>
-</header>
-<p>
-Begin by importing your dataset from the Import Data submenu in the sidebar, The
-sidebar gives you the option of uploading your own protein abundance and annotation
-data, or using a sample dataset from within the <font color = "red">MSstatsSampleSize</font> Package. Click Select Data type and select Example from MStatsSampleSize to start exploring
-</p>
-
 <div class = "row">
 <div class = "col-md-6">
 <h3>Protein Abundance File</h3>

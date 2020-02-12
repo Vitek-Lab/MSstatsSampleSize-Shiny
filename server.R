@@ -173,7 +173,6 @@ function(session, input, output) {
     #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
       exp_fc <- ifelse(input$exp_fc, 'data', '')
-      
       if(exp_fc == '')
         exp_fc <- fc_values
       
