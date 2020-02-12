@@ -558,7 +558,7 @@ plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
   }
   
   df <- rbindlist(lapply(samp, function(x){
-    dt <- as.data.table(data[[x]]$var_imp))
+    dt <- as.data.table(data[[x]]$var_imp)
     setorder(dt, -scaled_importance)
     dt$name <- x
     dt
