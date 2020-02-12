@@ -2,6 +2,7 @@
 ###############################################################
 dashboardPage(
   skin="black",
+  
   ##### Header #####
   header =  dashboardHeader(
     title = "MSstatsSampleSize",
@@ -16,30 +17,8 @@ dashboardPage(
       ##### Home Tab ####
       menuItem("Home", tabName = "home", icon = icon("home")),
       #### Data Import Tab ####
-      menuItem("Import Data", icon = icon("file-import"),
-               ##### Select Input for Type of Data ####
-               menuSubItem(selectInput("data_format", "Select Data Type",
-                                       choice = list("Protein-level quantification" = "standard", 
-                                                     "Example from MSstatsSampleSize" = "examples")
-                                       ),
-                           tabName = "import_data"),
-               ##### File Input for Protein Abundance File ####
-               fileInput("standard_count", "Select Protein Abundance File",
-                         multiple = FALSE,
-                         accept = c("text/csv",
-                                    "text/comma-separated-values,text/plain",
-                                    ".csv", "text/tab-separated-values", ".tsv")),
-               ##### File Input for Annotation File #####
-               fileInput("standard_annot", "Select sample annotation file",
-                         multiple = FALSE,
-                         accept = c("text/csv",
-                                    "text/comma-separated-values,text/plain",
-                                    ".csv", "text/tab-separated-values", ".tsv")),
-               ##### Action Button To load data #####
-               actionButton("import_data", "Import dataset", 
-                            icon = icon("file-import"))
-      ),
-      menuItem("Explore Data", tabName = "explore_data", icon = icon("tv")),
+      menuItem("Import Data", tabName = "import_data", icon = icon("file-import")),
+      #menuItem("Explore Data", tabName = "explore_data", icon = icon("tv")),
       #### Data Simulation Tab ####
       menuItem("Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
@@ -60,37 +39,81 @@ dashboardPage(
       #### Import Data Tab ####
       tabItem(
         tabName = "import_data",
-        includeHTML("www/test.rmd")
+        navbarPage("", id = "myNavBar",
+                   tabPanel("Import Data", fluidPage(
+                     box(title = "Data Import Wizard", width = 12,
+                         solidHeader = T, status = 'primary',
+                         fluidRow(
+                           column(width = 4, 
+                                  selectInput("data_format", "Select Data Type",
+                                              choice = list("Protein-level quantification" = "standard", 
+                                                            "Example from MSstatsSampleSize" = "examples")
+                                  )
+                           ),
+                           column(width = 4, 
+                                  fileInput("standard_count", "Select Protein Abundance File",
+                                            multiple = FALSE,
+                                            accept = c("text/csv",
+                                                       "text/comma-separated-values,text/plain",
+                                                       ".csv", "text/tab-separated-values", ".tsv")
+                                  )
+                           ),
+                           column(width = 4,
+                                  fileInput("standard_annot", "Select sample annotation file",
+                                            multiple = FALSE,
+                                            accept = c("text/csv",
+                                                       "text/comma-separated-values,text/plain",
+                                                       ".csv", "text/tab-separated-values", ".tsv")
+                                  )
+                           )
+                         ),
+                         fluidRow(
+                           column(width = 2,
+                                  actionButton("import_data", "Import dataset", 
+                                               icon = icon("file-import"))
+                           )
+                         )
+                     ),
+                     box(title = "Example Data", width = 12, solidHeader = T,
+                         status = 'primary',
+                         includeHTML("www/test.rmd")) 
+                   )
+                   ),
+                   tabPanel("Explore Data", fluidPage(
+                     h1(textOutput("dataset_name")),
+                     br(),
+                     #### Summary Tables ####
+                     fluidRow(
+                       # Data table output for summary table
+                       box(title = "Summary", width = 6, solidHeader = T, status = "primary",
+                           DT::dataTableOutput("sum_table")),
+                       # Data table output for condition summary
+                       box(title = "Condition Summary", width = 6, solidHeader = T,
+                           status = "primary", 
+                           DT::dataTableOutput("cond_sum_table"))
+                     ),
+                     br(),
+                     #### Box plots and HeatMap ####
+                     fluidRow(
+                       # Box plot 
+                       box(title = "QC Box Plot", solidHeader = T, status = "primary",
+                           width = 7,
+                           plotly::plotlyOutput("global_boxplot")
+                       ),
+                       # heatmap
+                       box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
+                           width = 5,
+                           plotOutput("mean_sd_plot")
+                       )
+                     )
+                   )
+                   )
+        )
       ),
       ##### Exploration Visuals #####
       tabItem(
         tabName = "explore_data",
-        h1(textOutput("dataset_name")),
-        br(),
-        #### Summary Tables ####
-        fluidRow(
-          # Data table output for summary table
-          box(title = "Summary", width = 6, solidHeader = T, status = "primary",
-              DT::dataTableOutput("sum_table")),
-          # Data table output for condition summary
-          box(title = "Condition Summary", width = 6, solidHeader = T,
-              status = "primary", 
-              DT::dataTableOutput("cond_sum_table"))
-        ),
-        br(),
-        #### Box plots and HeatMap ####
-        fluidRow(
-          # Box plot 
-          box(title = "QC Box Plot", solidHeader = T, status = "primary",
-              width = 7,
-              plotly::plotlyOutput("global_boxplot")
-          ),
-          # heatmap
-          box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
-              width = 5,
-              plotOutput("mean_sd_plot")
-          )
-        )
+        
       ),
       #### Data Simulation Tab #####
       tabItem(

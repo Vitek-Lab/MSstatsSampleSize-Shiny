@@ -4,13 +4,12 @@ function(session, input, output) {
   shinyhelper::observe_helpers(help_dir = "help_mds")
   
   onStop(function() {
-    try({h2o::h2o.shutdown(prompt = FALSE)}, silent=TRUE)
+    try({h2o::h2o.shutdown(prompt = F)}, silent = T)
   })
   
   rv <- reactiveValues()
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
-  rv <- reactiveValues()
   #### Toggle control for sidebar ####
   # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
@@ -75,7 +74,7 @@ function(session, input, output) {
   
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
-    updateTabItems(session = session, "tabs", selected = "explore_data")
+    updateTabsetPanel(session = session, "myNavBar", selected = "Explore Data")
   })
   #### Toggle control for simulate data tab ####
   observeEvent(input$exp_fc,{
@@ -85,10 +84,6 @@ function(session, input, output) {
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "b_group",
                            condition = input$exp_fc != T)
-    # shinyjs::toggleElement(id = 'grp',
-    #                        condition = input$exp_fc != T)
-    # shinyjs::toggleElement(id = 'grp_choices', 
-    #                        condition  = input$exp_fc != T)
     shinyjs::toggleElement(id = "fc_values", 
                            condition  = input$exp_fc != T)
   })
