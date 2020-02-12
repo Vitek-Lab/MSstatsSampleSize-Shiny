@@ -139,11 +139,6 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
          value = 0.7, session = session)
   data <- merge(as.data.table(data), annot, by = 'BioReplicate')
   
-  if(!is.null(session)){
-    shiny::showNotification('Data Import Completed', duration = 5, 
-                            type = 'message')
-  }
-  
   return(list('long_data' = data, 'wide_data' = wide, 'annot_data' = annot,
               'n_prot' = nrow(wide[,.N, Protein]), 
               'n_group' = nrow(annot[,.N,Condition]), 'dataset_name' = name))

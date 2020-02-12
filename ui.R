@@ -12,7 +12,9 @@ dashboardPage(
               top: calc(50% - 50px);;
               left: calc(55% - 400px);;
             }
-           "
+           .shiny-output-error-validation {
+           color: red;
+           }"
       )
     )
   ),
@@ -94,7 +96,7 @@ dashboardPage(
                    )
                    ),
                    tabPanel("Explore Data", fluidPage(
-                     h1(textOutput("dataset_name")),
+                     h3(textOutput("dataset_name")),
                      br(),
                      #### Summary Tables ####
                      fluidRow(
@@ -208,18 +210,21 @@ dashboardPage(
               fluidRow(
                 ##### Select individual simulation, previous and next buttons #####
                 column(4, selectInput(inputId = "simulations", label = "Simulations", choices = NULL)),
-                column(2, actionButton(inputId = "back", label = "Previous",
-                                       icon = icon("arrow-left"),
-                                       style = "margin-top: 25px;",
-                                       width = '100px')),
-                column(2, actionButton(inputId = "fwd", label = "Next",
-                                       icon = icon("arrow-right"),
-                                       style = "margin-top: 25px;",
-                                       width = '100px')),
-                column(2, downloadButton(outputId = "download_pca", label = "Download",
-                                         icon = icon("download"),
-                                         style = "margin-top: 25px;",
-                                         width = '150px'))
+                column(2, shinyjs::disabled(actionButton(inputId = "back",
+                                                         label = "Previous",
+                                                         icon = icon("arrow-left"),
+                                                         style = "margin-top: 25px;",
+                                                         width = '100px'))),
+                column(2, shinyjs::disabled(actionButton(inputId = "fwd",
+                                                         label = "Next",
+                                                         icon = icon("arrow-right"),
+                                                         style = "margin-top: 25px;",
+                                                         width = '100px'))),
+                column(2, shinyjs::disabled(downloadButton(outputId = "download_pca",
+                                                           label = "Download",
+                                                           icon = icon("download"),
+                                                           style = "margin-top: 25px;",
+                                                           width = '150px')))
 
               ),
               plotOutput("pca_plot")
@@ -238,13 +243,13 @@ dashboardPage(
                  selectInput(inputId = "s_size", label = "Sample Size",
                              choices = NULL)
           ),
-          actionButton(inputId = "back_varimp", label = "Prev.",
-                       icon = icon("arrow-left"), style = "margin-top: 25px;"),
-          actionButton(inputId = "fwd_varimp", label = "Next",
-                       icon = icon("arrow-right"), style = "margin-top: 25px;"),
-          downloadButton(outputId = "download_prot_imp",
+          shinyjs::disabled(actionButton(inputId = "back_varimp", label = "Prev.",
+                       icon = icon("arrow-left"), style = "margin-top: 25px;")),
+          shinyjs::disabled(actionButton(inputId = "fwd_varimp", label = "Next",
+                       icon = icon("arrow-right"), style = "margin-top: 25px;")),
+          shinyjs::disabled(downloadButton(outputId = "download_prot_imp",
                          label = "Download PDF", 
-                         style = "margin-top: 25px;", width = '75px')
+                         style = "margin-top: 25px;", width = '75px'))
         ),
         fluidRow(
           ##### Model Setup Box #####
@@ -271,9 +276,11 @@ dashboardPage(
                           min = 0, max = 1, step = 0.001, value = 0.01),
               sliderInput(inputId = "min_sdev", label = "Minimum SD",
                           min = 0.01, value = 0.01, max = 1),
-              actionButton(inputId = "run_model", label = "Train Model",
-                           width = '100px'),
-              downloadButton(outputId = "download_models", label = "Download Models")
+              shinyjs::disabled(actionButton(inputId = "run_model",
+                                             label = "Train Model",
+                                             width = '100px')),
+              shinyjs::disabled(downloadButton(outputId = "download_models",
+                                               label = "Download Models"))
           ),
           ##### Accuracy Box ####
           box(width = 4, title = "Accuracy", status = "info", solidHeader = T,

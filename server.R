@@ -329,6 +329,10 @@ function(session, input, output) {
       )
     },message = "Progress:", value = 0.2, detail = "Training"
     )
+    shinyjs::enable("download_models")
+    shinyjs::enable("download_prot_imp")
+    shinyjs::enable("back_varimp")
+    shinyjs::enable("fwd_varimp")
   })
   
   
