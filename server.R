@@ -85,9 +85,11 @@ function(session, input, output) {
   observeEvent(input$exp_fc,{
     shinyjs::toggleElement(id = "diff_prot",
                            condition = input$exp_fc != T)
-    shinyjs::toggleElement(id = "exp_fc_name",
+    shinyjs::toggleElement(id = "diff_prot_help",
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "b_group",
+                           condition = input$exp_fc != T)
+    shinyjs::toggleElement(id = "b_group_help",
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "fc_values", 
                            condition  = input$exp_fc != T)
@@ -154,6 +156,8 @@ function(session, input, output) {
   # toggle the validation input ui 
   observeEvent(input$sim_val,{
     shinyjs::toggleElement(id = "n_val_samp_grp",
+                           condition = input$sim_val == T)
+    shinyjs::toggleElement(id = "n_val_samp_grp_help",
                            condition = input$sim_val == T)
   })
   

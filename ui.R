@@ -2,7 +2,20 @@
 ###############################################################
 dashboardPage(
   skin="black",
-  
+  tags$head(
+    tags$style(
+      HTML(".shiny-notification {
+              height: 100px;
+              width: 800px;
+              opacity: 1;
+              position:fixed;
+              top: calc(50% - 50px);;
+              left: calc(55% - 400px);;
+            }
+           "
+      )
+    )
+  ),
   ##### Header #####
   header =  dashboardHeader(
     title = "MSstatsSampleSize",
@@ -40,7 +53,8 @@ dashboardPage(
       tabItem(
         tabName = "import_data",
         navbarPage("", id = "myNavBar",
-                   tabPanel("Import Data", fluidPage(
+                   tabPanel("Import", fluidPage( 
+                     theme = shinythemes::shinytheme("spacelab"),
                      box(title = "Data Import Wizard", width = 12,
                          solidHeader = T, status = 'primary',
                          fluidRow(
@@ -146,7 +160,8 @@ dashboardPage(
                             value = T),
               selectInput(inputId = "b_group", label = "Baseline Group",
                           choices = NULL)%>%
-                shinyhelper::helper(type = "markdown", content = "b_group"),
+                shinyhelper::helper(type = "markdown", content = "b_group",
+                                    id = "b_group_help"),
               # Render editable data.table for fold change values
               DT::DTOutput('fc_values'),
               br(),
@@ -154,7 +169,8 @@ dashboardPage(
               textInput(inputId = "diff_prot", label = "List Diff Protein",
                         value = NULL,
                         placeholder = "List of comma separated Proteins") %>%
-                shinyhelper::helper(type = "markdown", content = "diff_prot"),
+                shinyhelper::helper(type = "markdown", content = "diff_prot",
+                                    id = "diff_prot_help"),
               # Select number/proportion the proteins be simulated with
               selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
                           choices = c("proportion", "number"),
@@ -179,7 +195,8 @@ dashboardPage(
               # Define number of samples in the validation groups
               numericInput(inputId = "n_val_samp_grp", label = "Valid samples per group",
                            value = 50, min = 50, max = 1000, step = 50) %>%
-                shinyhelper::helper(type = "markdown", content = "n_val_samp_grp"),
+                shinyhelper::helper(type = "markdown", content = "n_val_samp_grp",
+                                    id = "n_val_samp_grp_help"),
               # Simulate the dataset provided inputs, gets enabled dynamically
               shinyjs::disabled(
                 actionButton(inputId = "simulate", label = "Simulate Data",
