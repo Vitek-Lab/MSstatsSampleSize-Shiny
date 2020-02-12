@@ -3,6 +3,5 @@
 .RData
 .Ruserdata
 *.log
-.DS_Store
-*.Rproj
-sessionInfo.txt
+*.txt
+*.dcf

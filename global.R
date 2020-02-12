@@ -16,15 +16,14 @@ MODELS <- c('','rf','nnet','svmLinear','logreg','naive_bayes')
 names(MODELS) <- c('',"Random Forest", "Neural Network", "Support Vector Machines with Linear Kernel",
                    "Logistic Regression", "Naive Bayes")
 
-STOPPING_METRIC <- c("AUTO",
-                     "deviance", "logloss", "MSE", "RMSE", "MAE", "RMSLE", "AUC",
-                     "lift_top_group", "misclassification", "AUCPR", "mean_per_class_error",
-                     "custom", "custom_increasing")
+STOPPING_METRIC <- c("AUTO", "deviance", "logloss", "MSE", "RMSE", "MAE", "RMSLE",
+                     "AUC", "lift_top_group", "misclassification", "AUCPR",
+                     "mean_per_class_error", "custom", "custom_increasing")
 
 FOLD_ASSIGNMENT <- c("AUTO", "Random", "Modulo", "Stratified")
 
-DISTRIBUTION <- c("AUTO", "bernoulli", "multinomial", "gaussian",
-                  "poisson", "gamma", "tweedie", "laplace", "quantile", "huber")
+DISTRIBUTION <- c("AUTO", "bernoulli", "multinomial", "gaussian", "poisson",
+                  "gamma", "tweedie", "laplace", "quantile", "huber")
 
 FAMILY <-  c("gaussian", "binomial", "quasibinomial", "ordinal", "multinomial",
            "poisson", "gamma", "tweedie", "negativebinomial")
@@ -36,6 +35,6 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie", "o
 
 B_GROUP <- ""
 
-config <- h2o_config()
-h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
-              log_dir = config$log_dir, log_level = config$log_level)
+# config <- h2o_config()
+# h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
+#               log_dir = config$log_dir, log_level = config$log_level)
