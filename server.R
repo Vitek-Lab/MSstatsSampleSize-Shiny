@@ -47,7 +47,7 @@ function(session, input, output) {
   
   #### Visualize EDA ####
   output$dataset_name <- renderText(
-    paste("Data Set Name:",data()$dataset_name)
+    paste("Dataset Filename:",data()$dataset_name)
   )
   # Condition Summary Table
   output$cond_sum_table <- DT::renderDataTable({
@@ -93,31 +93,32 @@ function(session, input, output) {
                            condition = input$exp_fc != T)
     shinyjs::toggleElement(id = "fc_values", 
                            condition  = input$exp_fc != T)
+    shinyjs::toggleElement(id = "fc_values_help", 
+                           condition = input$exp_fc != T)
   })
   
   # toggle between number and proportion of the proteins
   observeEvent(input$sel_sim_prot,{
     shinyjs::toggleElement(id = "prot_prop",
-                           condition = input$sel_sim_prot == "proportion")
+                           condition = input$sel_sim_prot == "Proportion")
     shinyjs::toggleElement(id = "prot_num",
-                           condition = input$sel_sim_prot != "proportion")
+                           condition = input$sel_sim_prot != "Proportion")
   })
   
   # Fold Change Editable table #
   # render the fold change datatable, and update the baseline groups as selected
   # from the drop down menu provide in the UI
   observeEvent(input$b_group,{
+    validate(need(input$b_group, "No Baseline Group"))
     choices <- B_GROUP[!B_GROUP %in% input$b_group]
     
-    group <- c(input$b_group, 
-               sprintf("%s - %s", choices, input$b_group))
+    group <- sprintf("%s - %s", choices, input$b_group)
     #create a global table
     fc_values <<- data.table(Group = group,
-                             `Fold Change Value` = c(1, 
-                                                     rep(NA, length(group)-1)),
-                             orig_group = c(input$b_group, as.character(choices)))
+                             `Fold Change Value` = rep(NA, length(group)-1),
+                             orig_group = as.character(choices))
     # render editable table to ui
-    output$fc_values <- DT::renderDT(fc_values[-1], rownames = F,
+    output$fc_values <- DT::renderDT(fc_values, rownames = F,
                                      options = list(dom = 't',
                                                     columnDefs = list(list(targets = c(2),
                                                            visible = F))),
@@ -173,16 +174,19 @@ function(session, input, output) {
     #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
       exp_fc <- ifelse(input$exp_fc, 'data', '')
-      if(exp_fc == '')
-        exp_fc <- fc_values
-      
+      if(exp_fc == ''){
+        baseline <- data.table(Group = input$b_group,
+                               `Fold Change Value` = 1,
+                               orig_group = input$b_group)
+        exp_fc <- rbind(baseline, fc_values)
+      }
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
                       list_diff_proteins = input$diff_prot,
-                      sel_simulated_proteins = input$sel_sim_prot,
+                      sel_simulated_proteins = tolower(input$sel_sim_prot),
                       prot_proportion = input$prot_prop,
                       prot_number = input$prot_num,
                       samples_per_group = input$n_samp_grp,
@@ -223,7 +227,7 @@ function(session, input, output) {
   
   observeEvent(input$fwd,{
     curr <- which(sim_choices == input$simulations)
-    if(curr >= 1){
+    if(curr >= 1 && curr <= length(sim_choices)-1){
       updateSelectInput(session = session, "simulations",
                         choices = sim_choices, selected = sim_choices[curr + 1])
     }
@@ -320,7 +324,6 @@ function(session, input, output) {
   })
   #### Run Classification #####
   observeEvent(input$run_model,{
-    #browser()
     withProgress({
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, session = session),
@@ -354,31 +357,16 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    if(input$use_h2o){
-      validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
-      show_faults(plot_acc(data = rv$classification), session = session)
-    }else{
-      validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
-      MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
-                                                             rv$classification$samp,
-                                                             protein_importance_plot = F,
-                                                             address = F)
-    }
+    show_faults(plot_acc(data = rv$classification, use_h2o = input$use_h2o,
+                         alg = names(MODELS)[which(MODELS %in% input$classifier)]),
+                session = session)
   })
   
   output$importance_plot <- renderPlot({
-    #browser()
-    if(input$use_h2o){
-      validate(need(!is.null(rv$classification$models),"No Trained Models Found"))
-      show_faults(plot_var_imp(data = rv$classification$models, sample = input$s_size),
-                  session = session)
-    }else{
-      validate(need(!is.null(rv$classification$res),"No Trained Models Found"))
-      MSstatsSampleSize::designSampleSizeClassificationPlots(data = rv$classification$res,
-                                                             rv$classification$samp,
-                                                             predictive_accuracy_plot = F,
-                                                             address = F)
-    }
+    show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
+                             use_h2o = input$use_h2o),
+                session = session)
+
   })
   
   #### Download buttons for models plots/and data #####
@@ -386,11 +374,13 @@ function(session, input, output) {
     filename = sprintf("plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
-      plots <- plot_var_imp(data = rv$classification$models, sample = 'all',
-                            prots = nrow(rv$classification$models[[1]]$var_imp))
+      browser()
+      plots <- plot_var_imp(data = rv$classification, sample = 'all',
+                            use_h2o = input$use_h2o, prots = 'all')
       withProgress({
         pdf(file = file, height = 9, width = 6.5)
-        print(plot_acc(data = rv$classification))
+        print(plot_acc(data = rv$classification, use_h2o = input$use_h2o,
+                       alg = names(MODELS)[which(MODELS %in% input$classifier)]))
         for(i in seq_along(plots)){
           status(sprintf("Plottint %s plot", i), value = i/length(plots),
                  session = session)

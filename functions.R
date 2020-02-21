@@ -299,7 +299,7 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10, legend.size = 7){
                                                    vjust = -0.4), 
                        axis.title.y = element_text(size = y.axis.size + 5,
                                                    vjust = 0.3),
-                       title = element_text(size = x.axis.size + 8,
+                       title = element_text(size = x.axis.size + 4,
                                             vjust = 1.5),
                        legend.key = element_rect(fill = "white", 
                                                  colour = "white"),
@@ -354,7 +354,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
   shiny::validate(shiny::need(all(!is.na(samp)),
                               sprintf("Samples Per Group need to be numeric values, Found : %s",
                                       samples_per_group)),
-                  shiny::need(all(samp >= 50), "All samples Need to be >= 50"))
+                  shiny::need(all(samp >= 1), "All samples Need to be >= 1"))
   
   if(sim_valid){
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
@@ -404,7 +404,8 @@ sample_size_classification <- function(n_samp, sim_data, classifier, session = N
     pred_acc[[as.character(samp[i])]] <- res$predictive_accuracy
   }
   
-  return(list('res' = resi, 'samp' = as.numeric(samp)))
+  return(list('res' = resi, 'samp' = as.numeric(samp), 'pred_acc' = pred_acc,
+              'f_imp' = f_imp))
   }
 
 
@@ -517,56 +518,88 @@ h2o_config <- function(){
   return(config) 
 }
 
-plot_acc <- function(data, xlim = c(0,1)){
-  model_data <- data$models
-  df <- rbindlist(lapply(names(model_data), function(x){
-    z <- model_data[[x]]
-    strs <- unlist(strsplit(x,' '))
-    alg <- unique(z$model@algorithm)
-    err <- z$model@model$training_metrics@metrics$mean_per_class_error
-    data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
-               sample = as.numeric(gsub("[[:alpha:]]",'',strs[1])),
-               algorithm = alg,
-               err = err,
-               Mean_acc = mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy))
-  }))
+plot_acc <- function(data, use_h2o, alg = NA){
+  if(use_h2o){
+    shiny::validate(shiny::need(data$models, "No Models Run Yet"))
+    model_data <- data$models
+    df <- rbindlist(lapply(names(model_data), function(x){
+      z <- model_data[[x]]
+      strs <- unlist(strsplit(x,' '))
+      err <- z$model@model$training_metrics@metrics$mean_per_class_error
+      data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
+                 sample = as.factor(gsub("[[:alpha:]]",'',strs[1])),
+                 err = err,
+                 mean_acc = mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy))
+    }))
+  }else{
+    shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
+    df <- suppressWarnings(melt(rbindlist(data['pred_acc'])))
+    names(df) <- c("sample","mean_acc")
+  }
   
-  df <- df[,.(acc = mean(Mean_acc)),.(sample, algorithm)]
-  p <- ggplot(data = df, aes(x = sample , y = acc))+
+  p <- ggplot(data = df, aes(x = sample , y = mean_acc, group = sample))+
     labs(x = "Simulation Set", y = "Mean Accuracy",
-         title = sprintf("Accuracy for classifier %s", df[, unique(algorithm)]))+
-    geom_line()+
-    geom_point()+
-    scale_y_continuous(limits = xlim) +
-    scale_x_continuous(breaks = df[,sample])+
+         title = sprintf("Classifier %s", alg))+
+    geom_boxplot()+
+    geom_smooth(method = 'lm', formula = y~x, aes(group = 1))+
     theme_MSstats()
   
   return(p)
 }
 
-plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
-  
-  samp <- names(data)
-  if(alg == "svmLinear"){
-    samp <- names(data$models)
-  }
+plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
+  #browser()
+  if(use_h2o){
+    if(prots == 'all'){
+      prots <- nrow(data$models[[1]]$var_imp)
+    }
     
-  if(sample != 'all'){
-    req_samp <- unique(unlist(strsplit(samp, ' ')))
-    req_samp <- req_samp[grep("Sample", req_samp)]
-    req_samp <- req_samp[grep(sample, req_samp)]
-    samp <- samp[grep(req_samp, samp)]
+    shiny::validate(shiny::need(data$models, "No Trained Models Found"))
+    data <- data$models
+    samp <- names(data)
+    if(alg == "svmLinear"){
+      samp <- names(data$models)
+    }
+    
+    if(sample != 'all'){
+      req_samp <- unique(unlist(strsplit(samp, ' ')))
+      req_samp <- req_samp[grep("Sample", req_samp)]
+      req_samp <- req_samp[grep(sample, req_samp)]
+      samp <- samp[grep(req_samp, samp)]
+    }
+    
+    df <- rbindlist(lapply(samp, function(x){
+      dt <- as.data.table(data[[x]]$var_imp)
+      setorder(dt, -scaled_importance)
+      dt$name <- x
+      dt
+    }))
+    
+    df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
+    df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
+    
+  }else{
+    shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
+    
+    if(sample == 'all'){
+      sample <- as.character(data$samp)
+    }else{
+      sample <- gsub("Sample","", sample)
+    }
+    
+    df <- rbindlist(lapply(sample, function(x){
+      #browser()
+      d <- suppressWarnings(melt(as.data.table(
+        data$f_imp[[x]], keep.rownames = T)))
+      d <- d[, lapply(.SD, mean), .SDcols = 3, by = c("rn")]
+      d[, sample_size := paste("SampleSize",x)]
+      setnames(d, c('rn', 'value'), c('variable', 'relative_importance'))
+    }))
+    
+    if(prots == 'all'){
+      prots <- df[,.N,sample_size][,unique(N)]
+    }
   }
-  
-  df <- rbindlist(lapply(samp, function(x){
-    dt <- as.data.table(data[[x]]$var_imp)
-    setorder(dt, -scaled_importance)
-    dt$name <- x
-    dt
-  }))
-  
-  df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
-  df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
   
   dt <- df %>%
     mutate(variable = reorder(variable, relative_importance)) %>%
@@ -588,6 +621,7 @@ plot_var_imp <- function(data, sample = 'all', alg = '', prots = 10){
       coord_flip()
   })
   names(g) <- dt[,unique(sample_size)]
+  
   
   return(g)
 }

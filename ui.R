@@ -20,7 +20,7 @@ dashboardPage(
   ),
   ##### Header #####
   header =  dashboardHeader(
-    title = "MSstatsSampleSize",
+    title = "MSstats - Sample Size Calculation",
     titleWidth = 300
   ),
   #### SideBar ####
@@ -32,12 +32,12 @@ dashboardPage(
       ##### Home Tab ####
       menuItem("Home", tabName = "home", icon = icon("home")),
       #### Data Import Tab ####
-      menuItem("Import Data", tabName = "import_data", icon = icon("file-import")),
+      menuItem("1: Import Data", tabName = "import_data", icon = icon("file-import")),
       #### Data Simulation Tab ####
-      menuItem("Simulate datasets", 
+      menuItem("2: Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
       #### Analyze Simulation Tab ####
-      menuItem("Analyze the simulated datasets", 
+      menuItem("3: Analyze Simulated Datasets", 
                tabName = "analyse_simulated", icon = icon("vial"))
     )
   ),
@@ -55,7 +55,6 @@ dashboardPage(
         tabName = "import_data",
         navbarPage("", id = "myNavBar",
                    tabPanel("Import", fluidPage( 
-                     theme = shinythemes::shinytheme("spacelab"),
                      box(title = "Data Import Wizard", width = 12,
                          solidHeader = T, status = 'primary',
                          includeHTML("www/data_import.Rmd"),
@@ -75,7 +74,7 @@ dashboardPage(
                                   )
                            ),
                            column(width = 4,
-                                  fileInput("standard_annot", "Select sample annotation file",
+                                  fileInput("standard_annot", "Select Sample Annotation File",
                                             multiple = FALSE,
                                             accept = c("text/csv",
                                                        "text/comma-separated-values,text/plain",
@@ -100,26 +99,33 @@ dashboardPage(
                      br(),
                      #### Summary Tables ####
                      fluidRow(
-                       # Data table output for summary table
-                       box(title = "Summary", width = 6, solidHeader = T, status = "primary",
-                           DT::dataTableOutput("sum_table")),
-                       # Data table output for condition summary
-                       box(title = "Condition Summary", width = 6, solidHeader = T,
-                           status = "primary", 
-                           DT::dataTableOutput("cond_sum_table"))
+                       column(width = 6,
+                              fluidRow(width = 12,
+                                       # Data table output for summary table
+                                       box(title = "Summary", solidHeader = T,
+                                           status = "primary", width = 12,
+                                           DT::dataTableOutput("sum_table"))),
+                              br(),
+                              # Data table output for condition summary
+                              fluidRow(width = 12,
+                                       box(title = "Condition Summary", solidHeader = T,
+                                           status = "primary", width = 12,
+                                           DT::dataTableOutput("cond_sum_table"))
+                              )
+                       ),
+                       column(width = 6,# heatmap
+                              box(title = "Mean-Variance Plot", solidHeader = T,
+                                  status = "primary", width = 12,
+                                  plotOutput("mean_sd_plot")
+                              ))
                      ),
                      br(),
                      #### Box plots and HeatMap ####
                      fluidRow(
                        # Box plot 
                        box(title = "QC Box Plot", solidHeader = T, status = "primary",
-                           width = 7,
+                           width = 12,
                            plotly::plotlyOutput("global_boxplot")
-                       ),
-                       # heatmap
-                       box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
-                           width = 5,
-                           plotOutput("mean_sd_plot")
                        )
                      )
                    )
@@ -134,10 +140,10 @@ dashboardPage(
         fluidRow(
           # csv file uploads for parameters --- disabled not completely scoped out
           column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
-                                  label = "Upload Simulation Parameters from csv"))),
+                                                    label = "Upload Simulation Parameters from csv"))),
           # set seed disabled not completely scoped out
           column(3, shinyjs::disabled(checkboxInput(input = "set_seed",
-                                  label = "Set Seed value 1212")))
+                                                    label = "Set Seed value 1212")))
         ),
         #### File Input to upload a simulation parameter csv ####
         fileInput(input = "param_input", label = "Upload Parameters in specified format",
@@ -153,24 +159,27 @@ dashboardPage(
                            value = 10, min = 10, max = 500, step = 1) %>%
                 shinyhelper::helper(type = "markdown", content = "n_sim"),
               # Use default fold change values?
-              checkboxInput(inputId = "exp_fc", label = "Use Default Fold Change?",
-                            value = T),
+              checkboxInput(inputId = "exp_fc", label = "Use Default Fold Change",
+                            value = T)%>%
+                shinyhelper::helper(type = "markdown", content = "exp_fc"),
               selectInput(inputId = "b_group", label = "Baseline Group",
                           choices = NULL)%>%
                 shinyhelper::helper(type = "markdown", content = "b_group",
                                     id = "b_group_help"),
               # Render editable data.table for fold change values
-              DT::DTOutput('fc_values'),
+              DT::DTOutput('fc_values') %>% 
+                shinyhelper::helper(type = "markdown", content = "fc_values",
+                                    id = "fc_values_help"),
               br(),
               # Input vector off different proteins
-              textInput(inputId = "diff_prot", label = "List Diff Protein",
+              textInput(inputId = "diff_prot", label = "List of Differential Abundant Proteins",
                         value = NULL,
                         placeholder = "List of comma separated Proteins") %>%
                 shinyhelper::helper(type = "markdown", content = "diff_prot",
                                     id = "diff_prot_help"),
               # Select number/proportion the proteins be simulated with
-              selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
-                          choices = c("proportion", "number"),
+              selectInput(inputId = "sel_sim_prot", label = "Select Proteins To Simulate",
+                          choices = c("Proportion", "Number"), #capitalize this
                           selected = "proportion") %>%
                 shinyhelper::helper(type = "markdown", content = "sel_sim_prot"),
               # define the protein proportion
@@ -183,7 +192,7 @@ dashboardPage(
                 shinyhelper::helper(type = "markdown", content = "prot_num"),
               # number of sample to be simulated
               textInput(inputId = "n_samp_grp", label = "Samples per group",
-                        value = NULL, placeholder = "50,60,70") %>%
+                        value = "5,10,20", placeholder = "5,10,20") %>%
                 shinyhelper::helper(type = "markdown", content = "n_samp_grp"),
               # should validation set be simulated as well?
               selectInput(inputId = "sim_val", label = "Simulate Validation Set",
@@ -229,12 +238,9 @@ dashboardPage(
       #### Analyse Simulation Tab ####
       tabItem(
         tabName = "analyse_simulated",
-        h1("Analyze the simulated datasets"),
+        h1("Analyze Simulated Datasets"),
         fluidRow(
-          column(width = 3, 
-                 checkboxInput(inputId = "use_h2o", label = "Use H2O Package")
-          ),
-          column(width = 2, offset = 4,
+          column(width = 2, offset = 7,
                  selectInput(inputId = "s_size", label = "Sample Size",
                              choices = NULL)
           ),
@@ -250,6 +256,7 @@ dashboardPage(
           ##### Model Setup Box #####
           box(id = "model_config", width = 3, status = "primary",
               solidHeader = T, title = "Model Setup",
+              checkboxInput(inputId = "use_h2o", label = "Use H2O Package"),
               selectInput(inputId = "classifier", label = "Select Model to Train",
                           choice = MODELS, width = '200px'),
               selectInput(inputId = "stop_metric", 
@@ -261,7 +268,8 @@ dashboardPage(
                           choices = FOLD_ASSIGNMENT),
               numericInput(inputId = "iters", label = "Iterations", value = 200,
                            min = 1, max = 1000, step = 10),
-              selectInput(inputId = "family", label = "Family", choices = FAMILY),
+              selectInput(inputId = "family", label = "Family", choices = FAMILY,
+                          selected = "binomial"),
               selectInput(inputId = "link", label = "Link", choices = LINK),
               selectInput(inputId = "solver", label = "Solver", choices = SOLVER),
               #selectInput(inputId = "dist", label = "Distribution", choices = DISTRIBUTION),
