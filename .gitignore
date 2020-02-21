@@ -5,3 +5,6 @@
 *.log
 *.txt
 *.dcf
+*.rds
+logs/
+rsconnect/

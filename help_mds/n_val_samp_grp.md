@@ -1,1 +1,2 @@
-Number of validation samples per group to simulate. This option works only when user selects simulate_validation=TRUE. Default is 50.
+Number of validation samples per group to simulate. This option works only when 
+user selects **Simulate Validation Set** = TRUE. Default is 50.
