@@ -9,8 +9,11 @@ function(session, input, output) {
     try({h2o::h2o.shutdown(prompt = F)}, silent = T)
   })
   
+  output$v3 <- renderPrint(input$checkbox_inputs)
   # List of reactive values
   rv <- reactiveValues()
+  rv$seed <- -1
+  
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
   #### Toggle control for sidebar ####
@@ -76,6 +79,14 @@ function(session, input, output) {
     data()$meanSDplot
   )
   
+  observeEvent(input$set_seed,{
+    if(input$set_seed == T){
+      rv$seed <- 1212
+    }else{
+      rm(.Random.seed, envir = globalenv())
+      rv$seed <- -1
+    }
+  }, ignoreInit = F)
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
     updateTabsetPanel(session = session, "myNavBar", selected = "Explore Data")
@@ -192,6 +203,7 @@ function(session, input, output) {
                       samples_per_group = input$n_samp_grp,
                       sim_valid = input$sim_val,
                       valid_samples_per_grp = input$n_val_samp_grp,
+                      seed = rv$seed,
                       session = session)
         },session = session
       )
@@ -277,9 +289,9 @@ function(session, input, output) {
   
   ##### Toggle switches based on input classifier for H2o #####
   #TODO make this chunk simplier
-  observeEvent(input$use_h2o, {
+  observeEvent(input$checkbox_inputs, {
     shinyjs::toggleElement(id = "stop_metric",
-                           condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
+                           condition = (input$checkbox_inputs && input$classifier %in% c("rf","logreg")))
     shinyjs::toggleElement(id = "nfolds",
                            condition = (input$use_h2o == T && input$classifier == "rf"))
     shinyjs::toggleElement(id = "f_assignment",
@@ -326,7 +338,8 @@ function(session, input, output) {
   observeEvent(input$run_model,{
     withProgress({
       rv$classification <- show_faults(
-        run_classification(sim = simulations(), inputs = input, session = session),
+        run_classification(sim = simulations(), inputs = input, seed = rv$seed,
+                           session = session),
         session = session
       )
     },message = "Progress:", value = 0.2, detail = "Training"
@@ -374,7 +387,6 @@ function(session, input, output) {
     filename = sprintf("plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
-      browser()
       plots <- plot_var_imp(data = rv$classification, sample = 'all',
                             use_h2o = input$use_h2o, prots = 'all')
       withProgress({

@@ -193,17 +193,8 @@ meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size 
          y = "Standard deviation per condition") +
     scale_y_continuous(expand = c(0,0), limits = c(0, ylimUp)) +
     scale_x_continuous(expand = c(0,0), limits = c(0, xlimUp)) +
-    theme(panel.background = element_rect(fill = "white", colour = "black"),
-          panel.grid.major = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          strip.background = element_rect(fill = "gray95"),
-          strip.text.x = element_text(colour = c("#00B0F6"), size = 14),
-          axis.text.x = element_text(size = x.axis.size, colour = "black"),
-          axis.text.y = element_text(size = y.axis.size, colour = "black"), 
-          axis.ticks = element_line(colour = "black"), 
-          axis.title.x = element_text(size = x.axis.size + 5, vjust = -0.4),
-          axis.title.y = element_text(size = y.axis.size + 5, vjust = 0.3),
-          legend.position = "none")
+    theme_MSstats()+
+    theme(legend.position = 'none')
   return(meansdplot)
 }
 
@@ -337,8 +328,10 @@ do_prcomp <- function(sim_x, sim_y){
 simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                           list_diff_proteins, sel_simulated_proteins, 
                           prot_proportion, prot_number, samples_per_group, sim_valid,
-                          valid_samples_per_grp, session = NULL){
+                          valid_samples_per_grp, seed, session = NULL){
   status(detail = "Setting Up Data Simulation Runs", value = 0.1, session = session)
+  if(seed != -1)
+    set.seed(seed)
   
   if(exp_fc != 'data'){
     status(detail = "Extracting Fold Change Informations", value = 0.15, session = session)
@@ -536,19 +529,21 @@ plot_acc <- function(data, use_h2o, alg = NA){
     df <- suppressWarnings(melt(rbindlist(data['pred_acc'])))
     names(df) <- c("sample","mean_acc")
   }
+  df[, acc := mean(mean_acc), sample]
   
-  p <- ggplot(data = df, aes(x = sample , y = mean_acc, group = sample))+
-    labs(x = "Simulation Set", y = "Mean Accuracy",
+  p <- ggplot(data = df)+
+    geom_boxplot(aes(x = sample , y = mean_acc, group = sample))+
+    geom_point(aes(x = sample, y = acc))+
+    geom_line(aes(x = sample, y = acc, group = 1), size = 0.75, color = "blue",
+              alpha = 0.25)+
+    labs(x = "Simulated Sample Set", y = "Predictive Accuracy",
          title = sprintf("Classifier %s", alg))+
-    geom_boxplot()+
-    geom_smooth(method = 'lm', formula = y~x, aes(group = 1))+
     theme_MSstats()
   
   return(p)
 }
 
 plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
-  #browser()
   if(use_h2o){
     if(prots == 'all'){
       prots <- nrow(data$models[[1]]$var_imp)
@@ -575,6 +570,7 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
       dt
     }))
     
+    #
     df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
     df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
     
@@ -588,7 +584,6 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
     }
     
     df <- rbindlist(lapply(sample, function(x){
-      #browser()
       d <- suppressWarnings(melt(as.data.table(
         data$f_imp[[x]], keep.rownames = T)))
       d <- d[, lapply(.SD, mean), .SDcols = 3, by = c("rn")]
@@ -628,19 +623,22 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
 
 #### WRAPPER FOR CLASSIFICATION ######
 
-run_classification <- function(sim, inputs, session = session){
+run_classification <- function(sim, inputs, seed, session = session){
+  if(seed != -1)
+    set.seed(seed)
+  
   if(inputs$use_h2o){
     classification <- ss_classify_h2o(n_samp = inputs$n_samp_grp, sim_data = sim,
-                                      classifier = inputs$classifier, stopping_metric = inputs$stop_metric,
-                                      seed = -1, nfolds = inputs$nfolds,
+                                      classifier = inputs$classifier,
+                                      stopping_metric = inputs$stop_metric,
+                                      nfolds = inputs$nfolds,
                                       fold_assignment = inputs$f_assignment, iters = inputs$iters,
                                       family = inputs$family, solver = inputs$solver,
                                       link = inputs$link, min_sdev = inputs$min_sdev,
                                       laplace = inputs$laplace, eps = inputs$eps_sdev,
-                                      session = session)
-    #plots <- plot_acc(data = classification)
-    #plot_imp <- plot_var_imp(data = classification$models)
+                                      seed = -1, session = session)
   }else{
+    
     classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
                                                  sim_data = sim,
                                                  classifier = inputs$classifier,
