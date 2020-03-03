@@ -9,10 +9,10 @@ function(session, input, output) {
     try({h2o::h2o.shutdown(prompt = F)}, silent = T)
   })
   
-  output$v3 <- renderPrint(input$checkbox_inputs)
   # List of reactive values
   rv <- reactiveValues()
   rv$seed <- -1
+  rv$use_h2o <- F
   
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
@@ -290,56 +290,77 @@ function(session, input, output) {
   ##### Toggle switches based on input classifier for H2o #####
   #TODO make this chunk simplier
   observeEvent(input$checkbox_inputs, {
+    rv$use_h2o <- ifelse(TUNING[1] %in% input$checkbox_inputs, T, F)
     shinyjs::toggleElement(id = "stop_metric",
-                           condition = (input$checkbox_inputs && input$classifier %in% c("rf","logreg")))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier %in% c("rf","logreg")))
     shinyjs::toggleElement(id = "nfolds",
-                           condition = (input$use_h2o == T && input$classifier == "rf"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "rf"))
     shinyjs::toggleElement(id = "f_assignment",
-                           condition = (input$use_h2o == T && input$classifier %in% c("rf", "naive_bayes")))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier %in% c("rf", "naive_bayes")))
     shinyjs::toggleElement(id = "iters",
-                           condition = (input$use_h2o == T && input$classifier == "svmLinear"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "svmLinear"))
     shinyjs::toggleElement(id = "link",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "family",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "solver",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "laplace",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
     shinyjs::toggleElement(id = "eps_sdev",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
     shinyjs::toggleElement(id = "min_sdev",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
   })
   
   observeEvent(input$classifier, {
     shinyjs::toggleElement(id = "stop_metric",
-                           condition = (input$use_h2o == T && input$classifier %in% c("rf","logreg")))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier %in% c("rf","logreg")))
     shinyjs::toggleElement(id = "nfolds",
-                           condition = (input$use_h2o == T && input$classifier == "rf"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "rf"))
     shinyjs::toggleElement(id = "f_assignment",
-                           condition = (input$use_h2o == T && input$classifier %in% c("rf", "naive_bayes")))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier %in% c("rf", "naive_bayes")))
     shinyjs::toggleElement(id = "iters",
-                           condition = (input$use_h2o == T && input$classifier == "svmLinear"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "svmLinear"))
     shinyjs::toggleElement(id = "link",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "family",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "solver",
-                           condition = (input$use_h2o == T && input$classifier == "logreg"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "logreg"))
     shinyjs::toggleElement(id = "laplace",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
     shinyjs::toggleElement(id = "eps_sdev",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
     shinyjs::toggleElement(id = "min_sdev",
-                           condition = (input$use_h2o == T && input$classifier == "naive_bayes"))
+                           condition = (all(TUNING %in% input$checkbox_inputs) &&
+                                          input$classifier == "naive_bayes"))
   })
   #### Run Classification #####
   observeEvent(input$run_model,{
     withProgress({
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, seed = rv$seed,
-                           session = session),
+                           use_h2o = rv$use_h2o, session = session),
         session = session
       )
     },message = "Progress:", value = 0.2, detail = "Training"
@@ -370,28 +391,36 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    show_faults(plot_acc(data = rv$classification, use_h2o = input$use_h2o,
+    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"))
+    if(rv$use_h2o)
+      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
+    
+    show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                          alg = names(MODELS)[which(MODELS %in% input$classifier)]),
                 session = session)
   })
   
   output$importance_plot <- renderPlot({
+    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"))
+    if(rv$use_h2o)
+      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
+    
     show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
-                             use_h2o = input$use_h2o),
+                             use_h2o = rv$use_h2o),
                 session = session)
 
   })
   
   #### Download buttons for models plots/and data #####
-  output$download_prot_imp <- downloadHandler(
+  output$download_plots <- downloadHandler(
     filename = sprintf("plots_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <- plot_var_imp(data = rv$classification, sample = 'all',
-                            use_h2o = input$use_h2o, prots = 'all')
+                            use_h2o = rv$use_h2o, prots = 'all')
       withProgress({
         pdf(file = file, height = 9, width = 6.5)
-        print(plot_acc(data = rv$classification, use_h2o = input$use_h2o,
+        print(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                        alg = names(MODELS)[which(MODELS %in% input$classifier)]))
         for(i in seq_along(plots)){
           status(sprintf("Plottint %s plot", i), value = i/length(plots),

@@ -227,6 +227,7 @@ dashboardPage(
       tabItem(
         tabName = "analyse_simulated",
         h1("Analyze Simulated Datasets"),
+        #### Model Setup Box ####
         fluidRow(
           box(status = 'primary', solidHeader = T, title = "Model Setup", 
               width = 12,
@@ -256,7 +257,7 @@ dashboardPage(
                                       width = "250px")
                 ),
                 column(width = 1,
-                       downloadButton(outputId = "rn3",
+                       downloadButton(outputId = "download_plots",
                                       label = "Download Plots" ,
                                       style = "margin-top:25px;",
                                       width = "200px")
@@ -287,17 +288,12 @@ dashboardPage(
           verbatimTextOutput("v3")
         ),
         fluidRow(
-          ##### Model Setup Box #####
-          box(id = "model_config", width = 3, status = "primary",
-              solidHeader = T, title = "Model Setup",
-              
-          ),
           ##### Accuracy Box ####
-          box(width = 4, title = "Accuracy", status = "info", solidHeader = T,
+          box(width = 6, title = "Accuracy", status = "info", solidHeader = T,
               plotOutput(outputId = 'acc_plot')
           ),
           ##### Protein Importance Box ####
-          box(width = 5, title = "Protein Importance", status = "success",
+          box(width = 6, title = "Protein Importance", status = "success",
               solidHeader = T,
               fluidRow(
                 column(width = 4,

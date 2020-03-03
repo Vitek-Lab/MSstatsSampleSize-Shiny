@@ -41,7 +41,7 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
           "ologit")
 
 B_GROUP <- ""
-
-# config <- h2o_config()
-# h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
-#               log_dir = config$log_dir, log_level = config$log_level)
+TUNING <- c("Use h2o Package", "Parameter Tuning")
+config <- h2o_config()
+h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
+              log_dir = config$log_dir, log_level = config$log_level)

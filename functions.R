@@ -575,8 +575,6 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
     df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
     
   }else{
-    shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
-    
     if(sample == 'all'){
       sample <- as.character(data$samp)
     }else{
@@ -623,11 +621,11 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
 
 #### WRAPPER FOR CLASSIFICATION ######
 
-run_classification <- function(sim, inputs, seed, session = session){
+run_classification <- function(sim, inputs, use_h2o, seed, session = session){
   if(seed != -1)
     set.seed(seed)
   
-  if(inputs$use_h2o){
+  if(use_h2o){
     classification <- ss_classify_h2o(n_samp = inputs$n_samp_grp, sim_data = sim,
                                       classifier = inputs$classifier,
                                       stopping_metric = inputs$stop_metric,
