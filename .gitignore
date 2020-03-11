@@ -6,5 +6,7 @@
 *.txt
 *.dcf
 *.rds
+*.pdf
 logs/
 rsconnect/
+MSstatsSampleSize-data/

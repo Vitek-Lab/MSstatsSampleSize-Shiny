@@ -244,7 +244,10 @@ dashboardPage(
                                             checkIcon = list(
                                               yes = icon("check-square"),
                                               no = icon("square-o")),
-                                            width = "300px")
+                                            width = "300px")%>%
+                         shinyhelper::helper(type = "markdown", 
+                                             content = "checkbox_inputs",
+                                             id = "checkbox_inputs_help")
                 ),
                 column(width = 1,
                        actionButton(inputId = "run_model", label = "Run Model",
