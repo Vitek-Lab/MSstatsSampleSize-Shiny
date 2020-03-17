@@ -10,7 +10,7 @@
 </div>
 
 <div class = "col-md-6">
-<h3> Annotation File</h3>
+<h3>Sample Annotation File</h3>
 <p> This must be a csv file in the <b>long format</b>. It includes columns BioReplicate
     for sample ID and Condition for group information. BioReplicate information
     should be the same as the column names of Preliminary data. The following

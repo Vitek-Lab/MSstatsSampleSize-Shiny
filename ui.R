@@ -20,7 +20,7 @@ dashboardPage(
   ),
   ##### Header #####
   header =  dashboardHeader(
-    title = "MSstatsSampleSize",
+    title = "MSstats - Sample Size Calculation",
     titleWidth = 300
   ),
   #### SideBar ####
@@ -32,12 +32,12 @@ dashboardPage(
       ##### Home Tab ####
       menuItem("Home", tabName = "home", icon = icon("home")),
       #### Data Import Tab ####
-      menuItem("Import Data", tabName = "import_data", icon = icon("file-import")),
+      menuItem("1: Import Data", tabName = "import_data", icon = icon("file-import")),
       #### Data Simulation Tab ####
-      menuItem("Simulate datasets", 
+      menuItem("2: Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
       #### Analyze Simulation Tab ####
-      menuItem("Analyze the simulated datasets", 
+      menuItem("3: Analyze Simulated Datasets", 
                tabName = "analyse_simulated", icon = icon("vial"))
     )
   ),
@@ -55,39 +55,26 @@ dashboardPage(
         tabName = "import_data",
         navbarPage("", id = "myNavBar",
                    tabPanel("Import", fluidPage( 
-                     theme = shinythemes::shinytheme("spacelab"),
                      box(title = "Data Import Wizard", width = 12,
                          solidHeader = T, status = 'primary',
                          includeHTML("www/data_import.Rmd"),
                          fluidRow(
                            column(width = 4, 
                                   selectInput("data_format", "Select Data Type",
-                                              choice = list("Protein-level quantification" = "standard", 
-                                                            "Example from MSstatsSampleSize" = "examples")
-                                  )
-                           ),
+                                              choice = FORMATS_LIST)),
                            column(width = 4, 
                                   fileInput("standard_count", "Select Protein Abundance File",
                                             multiple = FALSE,
-                                            accept = c("text/csv",
-                                                       "text/comma-separated-values,text/plain",
-                                                       ".csv", "text/tab-separated-values", ".tsv")
-                                  )
-                           ),
+                                            accept = EXTENSTIONS)),
                            column(width = 4,
-                                  fileInput("standard_annot", "Select sample annotation file",
+                                  fileInput("standard_annot", "Select Sample Annotation File",
                                             multiple = FALSE,
-                                            accept = c("text/csv",
-                                                       "text/comma-separated-values,text/plain",
-                                                       ".csv", "text/tab-separated-values", ".tsv")
-                                  )
-                           )
+                                            accept = EXTENSTIONS))
                          ),
                          fluidRow(
                            column(width = 2,
                                   actionButton("import_data", "Import dataset", 
-                                               icon = icon("file-import"))
-                           )
+                                               icon = icon("file-import")))
                          )
                      ),
                      box(title = "Example Data", width = 12, solidHeader = T,
@@ -100,26 +87,33 @@ dashboardPage(
                      br(),
                      #### Summary Tables ####
                      fluidRow(
-                       # Data table output for summary table
-                       box(title = "Summary", width = 6, solidHeader = T, status = "primary",
-                           DT::dataTableOutput("sum_table")),
-                       # Data table output for condition summary
-                       box(title = "Condition Summary", width = 6, solidHeader = T,
-                           status = "primary", 
-                           DT::dataTableOutput("cond_sum_table"))
+                       column(width = 6,
+                              fluidRow(width = 12,
+                                       # Data table output for summary table
+                                       box(title = "Summary", solidHeader = T,
+                                           status = "primary", width = 12,
+                                           DT::dataTableOutput("sum_table"))),
+                              br(),
+                              # Data table output for condition summary
+                              fluidRow(width = 12,
+                                       box(title = "Condition Summary", solidHeader = T,
+                                           status = "primary", width = 12,
+                                           DT::dataTableOutput("cond_sum_table"))
+                              )
+                       ),
+                       column(width = 6,# heatmap
+                              box(title = "Mean-Variance Plot", solidHeader = T,
+                                  status = "primary", width = 12,
+                                  plotOutput("mean_sd_plot")
+                              ))
                      ),
                      br(),
                      #### Box plots and HeatMap ####
                      fluidRow(
                        # Box plot 
                        box(title = "QC Box Plot", solidHeader = T, status = "primary",
-                           width = 7,
+                           width = 12,
                            plotly::plotlyOutput("global_boxplot")
-                       ),
-                       # heatmap
-                       box(title = "Mean-Variance Plot", solidHeader = T, status = "primary",
-                           width = 5,
-                           plotOutput("mean_sd_plot")
                        )
                      )
                    )
@@ -134,10 +128,10 @@ dashboardPage(
         fluidRow(
           # csv file uploads for parameters --- disabled not completely scoped out
           column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
-                                  label = "Upload Simulation Parameters from csv"))),
+                                                    label = "Upload Simulation Parameters from csv"))),
           # set seed disabled not completely scoped out
-          column(3, shinyjs::disabled(checkboxInput(input = "set_seed",
-                                  label = "Set Seed value 1212")))
+          column(3, checkboxInput(input = "set_seed",
+                                  label = "Set Seed value 1212"))
         ),
         #### File Input to upload a simulation parameter csv ####
         fileInput(input = "param_input", label = "Upload Parameters in specified format",
@@ -153,24 +147,27 @@ dashboardPage(
                            value = 10, min = 10, max = 500, step = 1) %>%
                 shinyhelper::helper(type = "markdown", content = "n_sim"),
               # Use default fold change values?
-              checkboxInput(inputId = "exp_fc", label = "Use Default Fold Change?",
-                            value = T),
+              checkboxInput(inputId = "exp_fc", label = "Use Default Fold Change",
+                            value = T)%>%
+                shinyhelper::helper(type = "markdown", content = "exp_fc"),
               selectInput(inputId = "b_group", label = "Baseline Group",
                           choices = NULL)%>%
                 shinyhelper::helper(type = "markdown", content = "b_group",
                                     id = "b_group_help"),
               # Render editable data.table for fold change values
-              DT::DTOutput('fc_values'),
+              DT::DTOutput('fc_values') %>% 
+                shinyhelper::helper(type = "markdown", content = "fc_values",
+                                    id = "fc_values_help"),
               br(),
               # Input vector off different proteins
-              textInput(inputId = "diff_prot", label = "List Diff Protein",
+              textInput(inputId = "diff_prot", label = "List of Differential Abundant Proteins",
                         value = NULL,
                         placeholder = "List of comma separated Proteins") %>%
                 shinyhelper::helper(type = "markdown", content = "diff_prot",
                                     id = "diff_prot_help"),
               # Select number/proportion the proteins be simulated with
-              selectInput(inputId = "sel_sim_prot", label = "Select Simulated Proteins",
-                          choices = c("proportion", "number"),
+              selectInput(inputId = "sel_sim_prot", label = "Select Proteins To Simulate",
+                          choices = c("Proportion", "Number"), #capitalize this
                           selected = "proportion") %>%
                 shinyhelper::helper(type = "markdown", content = "sel_sim_prot"),
               # define the protein proportion
@@ -183,7 +180,7 @@ dashboardPage(
                 shinyhelper::helper(type = "markdown", content = "prot_num"),
               # number of sample to be simulated
               textInput(inputId = "n_samp_grp", label = "Samples per group",
-                        value = NULL, placeholder = "50,60,70") %>%
+                        value = "5,10,20", placeholder = "5,10,20") %>%
                 shinyhelper::helper(type = "markdown", content = "n_samp_grp"),
               # should validation set be simulated as well?
               selectInput(inputId = "sim_val", label = "Simulate Validation Set",
@@ -229,61 +226,91 @@ dashboardPage(
       #### Analyse Simulation Tab ####
       tabItem(
         tabName = "analyse_simulated",
-        h1("Analyze the simulated datasets"),
+        h1("Analyze Simulated Datasets"),
+        #### Model Setup Box ####
         fluidRow(
-          column(width = 3, 
-                 checkboxInput(inputId = "use_h2o", label = "Use H2O Package")
+          box(status = 'primary', solidHeader = T, title = "Model Setup", 
+              width = 12,
+              fluidRow(
+                column(width = 2,
+                       selectInput(inputId = "classifier", label = "Select Model to Train",
+                                   choice = MODELS, width = '200px')
+                ),
+                column(width = 3,
+                       checkboxGroupButtons(inputId = "checkbox_inputs",
+                                            label = "Options",
+                                            choices = c("Use h2o Package",
+                                                        "Parameter Tuning"),
+                                            checkIcon = list(
+                                              yes = icon("check-square"),
+                                              no = icon("square-o")),
+                                            width = "300px")%>%
+                         shinyhelper::helper(type = "markdown", 
+                                             content = "checkbox_inputs",
+                                             id = "checkbox_inputs_help")
+                ),
+                column(width = 1,
+                       actionButton(inputId = "run_model", label = "Run Model",
+                                    width = "100px", style = "margin-top:25px;"),
+                ),
+                column(width = 2,
+                       downloadButton(outputId = "download_models",
+                                      label = "Download Models",
+                                      style = "margin-top:25px;",
+                                      width = "250px")
+                ),
+                column(width = 1,
+                       downloadButton(outputId = "download_plots",
+                                      label = "Download Plots" ,
+                                      style = "margin-top:25px;",
+                                      width = "200px")
+                )
+              ),
+              column(width = 3, 
+                     selectInput(inputId = "stop_metric", 
+                                 label = "Stopping Metric",
+                                 choices = STOPPING_METRIC),
+                     numericInput(inputId = "nfolds", label = "N-Folds",
+                                  value = 0, min = 0, max = 100, step = 1),
+                     selectInput(inputId = "f_assignment", label = "Fold Assignment",
+                                 choices = FOLD_ASSIGNMENT),
+                     numericInput(inputId = "iters", label = "Iterations", value = 200,
+                                  min = 1, max = 1000, step = 10),
+                     selectInput(inputId = "family", label = "Family", choices = FAMILY,
+                                 selected = "binomial"),
+                     sliderInput(inputId = "laplace", label = "Laplace", min = 0,
+                                 max = 1, value = 0)),
+              column(width = 3,
+                     selectInput(inputId = "link", label = "Link", choices = LINK),
+                     selectInput(inputId = "solver", label = "Solver", choices = SOLVER),
+                     sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold",
+                                 min = 0, max = 1, step = 0.001, value = 0.01),
+                     sliderInput(inputId = "min_sdev", label = "Minimum SD",
+                                 min = 0.01, value = 0.01, max = 1))
           ),
-          column(width = 2, offset = 4,
-                 selectInput(inputId = "s_size", label = "Sample Size",
-                             choices = NULL)
-          ),
-          shinyjs::disabled(actionButton(inputId = "back_varimp", label = "Prev.",
-                       icon = icon("arrow-left"), style = "margin-top: 25px;")),
-          shinyjs::disabled(actionButton(inputId = "fwd_varimp", label = "Next",
-                       icon = icon("arrow-right"), style = "margin-top: 25px;")),
-          shinyjs::disabled(downloadButton(outputId = "download_prot_imp",
-                         label = "Download PDF", 
-                         style = "margin-top: 25px;", width = '75px'))
+          verbatimTextOutput("v3")
         ),
         fluidRow(
-          ##### Model Setup Box #####
-          box(id = "model_config", width = 3, status = "primary",
-              solidHeader = T, title = "Model Setup",
-              selectInput(inputId = "classifier", label = "Select Model to Train",
-                          choice = MODELS, width = '200px'),
-              selectInput(inputId = "stop_metric", 
-                          label = "Stopping Metric",
-                          choices = STOPPING_METRIC),
-              numericInput(inputId = "nfolds", label = "N-Folds",
-                           value = 2, min = 0, max = 100, step = 1),
-              selectInput(inputId = "f_assignment", label = "Fold Assignment",
-                          choices = FOLD_ASSIGNMENT),
-              numericInput(inputId = "iters", label = "Iterations", value = 200,
-                           min = 1, max = 1000, step = 10),
-              selectInput(inputId = "family", label = "Family", choices = FAMILY),
-              selectInput(inputId = "link", label = "Link", choices = LINK),
-              selectInput(inputId = "solver", label = "Solver", choices = SOLVER),
-              #selectInput(inputId = "dist", label = "Distribution", choices = DISTRIBUTION),
-              sliderInput(inputId = "laplace", label = "Laplace", min = 0,
-                          max = 1, value = 0),
-              sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold",
-                          min = 0, max = 1, step = 0.001, value = 0.01),
-              sliderInput(inputId = "min_sdev", label = "Minimum SD",
-                          min = 0.01, value = 0.01, max = 1),
-              shinyjs::disabled(actionButton(inputId = "run_model",
-                                             label = "Train Model",
-                                             width = '100px')),
-              shinyjs::disabled(downloadButton(outputId = "download_models",
-                                               label = "Download Models"))
-          ),
           ##### Accuracy Box ####
-          box(width = 4, title = "Accuracy", status = "info", solidHeader = T,
-              plotOutput(outputId = 'acc_plot')
+          box(width = 6, title = "Accuracy", status = "info", solidHeader = T,
+              plotOutput(outputId = 'acc_plot'),
+              verbatimTextOutput("default", placeholder = F)
           ),
           ##### Protein Importance Box ####
-          box(width = 5, title = "Protein Importance", status = "success",
+          box(width = 6, title = "Protein Importance", status = "success",
               solidHeader = T,
+              fluidRow(
+                column(width = 4,
+                       selectInput(inputId = "s_size", label = "Sample Size",
+                                   choices = NULL)
+                ),
+                shinyjs::disabled(actionButton(inputId = "back_varimp", label = "Prev.",
+                                               icon = icon("arrow-left"), 
+                                               style = "margin-top: 25px;")),
+                shinyjs::disabled(actionButton(inputId = "fwd_varimp", label = "Next",
+                                               icon = icon("arrow-right"), 
+                                               style = "margin-top: 25px;"))
+              ),
               plotOutput('importance_plot')
           )
         )

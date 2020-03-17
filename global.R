@@ -1,4 +1,4 @@
-
+suppressMessages({
 library(shiny)
 library(shinydashboard)
 library(shinyWidgets)
@@ -9,11 +9,19 @@ library(naivebayes)
 library(randomForest)
 library(kernlab)
 library(e1071)
-
+})
 source('functions.R')
+
+FORMATS_LIST <- list("Protein-level quantification" = "standard", 
+                     "Example from MSstatsSampleSize" = "examples")
 FORMATS <- c("examples", "standard")
+EXTENSTIONS <- c("text/csv",
+                 "text/comma-separated-values,text/plain",
+                 ".csv", "text/tab-separated-values", ".tsv")
+
 MODELS <- c('','rf','nnet','svmLinear','logreg','naive_bayes')
-names(MODELS) <- c('',"Random Forest", "Neural Network", "Support Vector Machines with Linear Kernel",
+names(MODELS) <- c('',"Random Forest", "Neural Network",
+                   "Support Vector Machines with Linear Kernel",
                    "Logistic Regression", "Naive Bayes")
 
 STOPPING_METRIC <- c("AUTO", "deviance", "logloss", "MSE", "RMSE", "MAE", "RMSLE",
@@ -22,19 +30,18 @@ STOPPING_METRIC <- c("AUTO", "deviance", "logloss", "MSE", "RMSE", "MAE", "RMSLE
 
 FOLD_ASSIGNMENT <- c("AUTO", "Random", "Modulo", "Stratified")
 
-DISTRIBUTION <- c("AUTO", "bernoulli", "multinomial", "gaussian", "poisson",
-                  "gamma", "tweedie", "laplace", "quantile", "huber")
 
 FAMILY <-  c("gaussian", "binomial", "quasibinomial", "ordinal", "multinomial",
            "poisson", "gamma", "tweedie", "negativebinomial")
 
-SOLVER <- c("AUTO", "IRLSM", "L_BFGS", "COORDINATE_DESCENT_NAIVE", "COORDINATE_DESCENT",
-           "GRADIENT_DESCENT_LH", "GRADIENT_DESCENT_SQERR")
+SOLVER <- c("AUTO", "IRLSM", "L_BFGS", "COORDINATE_DESCENT_NAIVE", 
+            "COORDINATE_DESCENT", "GRADIENT_DESCENT_LH", "GRADIENT_DESCENT_SQERR")
 
-LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie", "ologit")
+LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
+          "ologit")
 
 B_GROUP <- ""
-
-config <- h2o_config()
-h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
-              log_dir = config$log_dir, log_level = config$log_level)
+TUNING <- c("Use h2o Package", "Parameter Tuning")
+# config <- h2o_config()
+# h2o::h2o.init(nthreads = 12, max_mem_size = "2g",
+#               log_dir = config$log_dir, log_level = config$log_level)
