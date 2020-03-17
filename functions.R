@@ -74,7 +74,6 @@ status <- function(detail, value, session = NULL){
 #' - sum_table = Contains the summary of the data fed
 #' - cond_sum_table = Contains the summary table for the conditions in the data fed
 explore_data <- function(format, count = NULL, annot = NULL, session = NULL){
-  
   formatted_data <- show_faults(
     format_data(format = format, count = count, annot = annot, session = session),
     session = session
@@ -107,7 +106,6 @@ explore_data <- function(format, count = NULL, annot = NULL, session = NULL){
 #' @param session A shiny session variable to make the notifications interactive
 #' @return A named list of the data an other objects as required
 format_data <- function(format, count = NULL, annot = NULL, session = NULL){
-  
   shiny::validate(shiny::need(format %in% FORMATS, 'Undefined Format'))
   
   if(format == 'standard'){
@@ -137,7 +135,12 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   
   status(detail = 'Merging Abundance & Spectral Counts with Annotations', 
          value = 0.7, session = session)
-  data <- merge(as.data.table(data), annot, by = 'BioReplicate')
+  if("Run" %in% names(annot)){
+    data <- merge(as.data.table(data), annot, by.y = "Run", by.x = "BioReplicate")
+  }else{
+    data <- merge(as.data.table(data), annot, by = 'BioReplicate') 
+  }
+  
   
   return(list('long_data' = data, 'wide_data' = wide, 'annot_data' = annot,
               'n_prot' = nrow(wide[,.N, Protein]), 
@@ -404,92 +407,88 @@ sample_size_classification <- function(n_samp, sim_data, classifier, session = N
 
 ####### H2o Application for classification #######
 
-ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUC",
-                            seed = -1, nfolds = 10, fold_assignment = "AUTO", iters = 200,
+ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUTO",
+                            seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
                             session = NULL){
-  
+  #browser()
   samp <- unlist(strsplit(n_samp,','))
-  models <- list()
-  status(detail = "Getting parameters for H2O", value = 0.1, session = session)
-  status(detail = "Initiating H2O Cluster", value = 0.1 , session = session)
+  library(foreach)
+  library(doParallel)
+  options(cores = detectCores())
+  registerDoParallel()
+  config <- h2o_config()
+  modelz <- list()
   
-  status(detail = sprintf("Running Classifier %s", classifier), session = session,
-         value = 0.1)
-  for(i in seq_along(samp)){
-    val <- i/length(samp)
-    # shiny::showNotification(sprintf("Classifying Sample %s of %s", i, length(samp)),
-    #                         session = session, type = 'message')
-    status(detail = sprintf("Classifying Sample %s of %s", i, length(samp)),
-           session = session, value = val)
-    
-    valid_x <- sim_data[[i]]$valid_X
-    valid_y <- sim_data[[i]]$valid_Y
-    valid_x <- as.data.table(valid_x, keep.rownames = T)
-    valid_x <- data.table(valid_x, condition =  valid_y)
-    valid <- h2o::as.h2o(valid_x)
-    train_x_list <- sim_data[[i]]$simulation_train_Xs 
-    train_y_list = sim_data[[i]]$simulation_train_Ys
-    
-    for(index in seq_along(train_x_list)){
-      new_val <- index/length(train_x_list)
-      status(detail = sprintf("Classifying %s of %s", names(train_x_list)[index],
-             length(train_x_list)), session = session, value = new_val)
-      train <- data.table(train_x_list[[index]],
-                          condition = as.factor(train_y_list[[index]]))
-      train <- h2o::as.h2o(train)
-      y <- "condition"
-      x <- setdiff(names(train), y)
-      
-      
-      #train <- dcast(test, Condition+BioReplicate~Protein, value.var = "Abundance")
-      if(classifier == "rf"){
-        model <- h2o::h2o.randomForest(x = x, y = y, training_frame = train,
-                                       validation_frame = valid,
-                                       stopping_rounds = 5, stopping_tolerance = 0.001, 
-                                       stopping_metric = stopping_metric, seed = seed, 
-                                       balance_classes = FALSE, nfolds = nfolds,
-                                       fold_assignment = fold_assignment)
-        
-        l <- labs(subtitle = "Model: Random Forest (h2o package)")
-        
-      } else if (classifier == "nnet"){
-        l1 = 0.5
-        l2 = 0
-        rate = 0.010
-        rho = 0.99
-        epochs = 10
-        hidden = c(150,150)
-        activation = "Rectifier"
-        model <- h2o::h2o.deeplearning(x = x, y = y, training_frame = train)
-      } else if (classifier == "svmLinear"){
-        model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, max_iterations = iters,
-                               seed = seed, disable_training_metrics = F)
-        l <- labs(subtitle = "Model: SVM (h2o package)")
-      } else if (classifier == "logreg"){
-        model <- h2o::h2o.glm(x = x, y = y, training_frame = train, seed = seed,
-                              family = family, lambda_search = TRUE, alpha = alpha, 
-                              nfolds = nfolds, solver = solver, link = link)
-        l <- labs(subtitle = "Model: Regression (h2o package)")
-      } else if (classifier == "naive_bayes"){
-        model <- h2o::h2o.naiveBayes(x = x, y = y, training_frame = train, ignore_const_cols = TRUE,
-                                     nfolds = nfolds, fold_assignment = fold_assignment,
-                                     seed = seed, laplace = laplace, min_sdev = min_sdev,
-                                     eps_sdev = eps, max_runtime_secs = 0)
-        l <- labs(subtitle = "Model: Naive Bayes (h2o package)")
-      } else{
-        stop("Not defined")
-      }
-      
-      status(detail = "Model training complete", value = new_val+0.2, session = session)
-      perf <- h2o::h2o.performance(model = model, newdata = train)
-      
-      name_val <- sprintf("Sample%s %s", samp[i],  names(train_x_list)[index])
-      var_imp <- h2o::h2o.varimp(model)
-      models[[name_val]] <- list('model'= model, 'lab'=labs, 'perf' = perf,
-                                 'var_imp' = var_imp)
-    }
-  }
+  models <- foreach(i = samp, .combine = 'append', 
+                    .packages = c("h2o","data.table")) %dopar% {
+                     port <- 54321 + 3*as.numeric(i)
+                     print(paste0("http://localhost:", port))
+                     h2o.init(nthreads = 2, max_mem_size = "2G", port = port,
+                              log_dir = config$log_dir, log_level = config$log_level)
+                     
+                     valid_x <- sim_data[[i]]$valid_X
+                     valid_y <- sim_data[[i]]$valid_Y
+                     valid_x <- as.data.table(valid_x, keep.rownames = T)
+                     valid_x <- data.table(valid_x, condition =  valid_y)
+                     valid <- as.h2o(valid_x)
+                     train_x_list <- sim_data[[i]]$simulation_train_Xs 
+                     train_y_list = sim_data[[i]]$simulation_train_Ys
+                     for(index in seq_along(train_x_list)){
+                       new_val <- index/length(train_x_list)
+                       
+                       train <- data.table(train_x_list[[index]],
+                                           condition = as.factor(train_y_list[[index]]))
+                       train <- as.h2o(train)
+                       y <- "condition"
+                       x <- setdiff(names(train), y)
+                       #train <- dcast(test, Condition+BioReplicate~Protein, value.var = "Abundance")
+                       if(classifier == "rf"){
+                         model <- h2o::h2o.randomForest(x = x, y = y, training_frame = train,
+                                                        validation_frame = valid,
+                                                        stopping_metric = stopping_metric, seed = seed, 
+                                                        balance_classes = FALSE, nfolds = nfolds,
+                                                        fold_assignment = fold_assignment)
+                         
+                         #l <- labs(subtitle = "Model: Random Forest (h2o package)")
+                         
+                       } else if (classifier == "nnet"){
+                         l1 = 0.5
+                         l2 = 0
+                         rate = 0.010
+                         rho = 0.99
+                         epochs = 10
+                         hidden = c(150,150)
+                         activation = "Rectifier"
+                         model <- h2o::h2o.deeplearning(x = x, y = y, training_frame = train)
+                       } else if (classifier == "svmLinear"){
+                         model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, max_iterations = iters,
+                                                seed = seed, disable_training_metrics = F)
+                         #l <- labs(subtitle = "Model: SVM (h2o package)")
+                       } else if (classifier == "logreg"){
+                         model <- h2o::h2o.glm(x = x, y = y, training_frame = train, seed = seed,
+                                               family = family, lambda_search = TRUE, alpha = alpha, 
+                                               nfolds = nfolds, solver = solver, link = link)
+                         #l <- labs(subtitle = "Model: Regression (h2o package)")
+                       } else if (classifier == "naive_bayes"){
+                         model <- h2o::h2o.naiveBayes(x = x, y = y, training_frame = train, ignore_const_cols = TRUE,
+                                                      nfolds = nfolds, fold_assignment = fold_assignment,
+                                                      seed = seed, laplace = laplace, min_sdev = min_sdev,
+                                                      eps_sdev = eps, max_runtime_secs = 0)
+                         #l <- labs(subtitle = "Model: Naive Bayes (h2o package)")
+                       } else{
+                         stop("Not defined")
+                       }
+                       perf <- h2o.performance(model = model, newdata = train)
+                       name_val <- sprintf("Sample%s %s", i,  names(train_x_list)[index])
+                       var_imp <- h2o.varimp(model)
+                       modelz[[name_val]] <- list('model'= model, 'perf' = perf,
+                                                  'var_imp' = var_imp)
+                     }
+                     h2o.shutdown(prompt = F)
+                     return(modelz)
+                    }
+  stopImplicitCluster()
   return(list('models' = models))
 }
 
@@ -519,10 +518,11 @@ plot_acc <- function(data, use_h2o, alg = NA){
       z <- model_data[[x]]
       strs <- unlist(strsplit(x,' '))
       err <- z$model@model$training_metrics@metrics$mean_per_class_error
+      acc <- mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy)
       data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
                  sample = as.factor(gsub("[[:alpha:]]",'',strs[1])),
                  err = err,
-                 mean_acc = mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy))
+                 mean_acc = ifelse(err==0,1,acc))
     }))
   }else{
     shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
@@ -644,3 +644,6 @@ run_classification <- function(sim, inputs, use_h2o, seed, session = session){
   }
   return(classification)
 }
+
+
+

@@ -271,7 +271,7 @@ dashboardPage(
                                  label = "Stopping Metric",
                                  choices = STOPPING_METRIC),
                      numericInput(inputId = "nfolds", label = "N-Folds",
-                                  value = 2, min = 0, max = 100, step = 1),
+                                  value = 0, min = 0, max = 100, step = 1),
                      selectInput(inputId = "f_assignment", label = "Fold Assignment",
                                  choices = FOLD_ASSIGNMENT),
                      numericInput(inputId = "iters", label = "Iterations", value = 200,
@@ -293,7 +293,8 @@ dashboardPage(
         fluidRow(
           ##### Accuracy Box ####
           box(width = 6, title = "Accuracy", status = "info", solidHeader = T,
-              plotOutput(outputId = 'acc_plot')
+              plotOutput(outputId = 'acc_plot'),
+              verbatimTextOutput("default", placeholder = F)
           ),
           ##### Protein Importance Box ####
           box(width = 6, title = "Protein Importance", status = "success",

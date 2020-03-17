@@ -6,7 +6,9 @@ function(session, input, output) {
   
   # stop the h2o cluster once the app is shutdown
   onStop(function() {
-    try({h2o::h2o.shutdown(prompt = F)}, silent = T)
+    try({
+      h2o::h2o.shutdown(prompt = F)
+      }, silent = T)
   })
   
   # List of reactive values
@@ -321,7 +323,7 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "min_sdev",
                            condition = (all(TUNING %in% input$checkbox_inputs) &&
                                           input$classifier == "naive_bayes"))
-  })
+  }, ignoreNULL = FALSE)
   
   observeEvent(input$classifier, {
     shinyjs::toggleElement(id = "stop_metric",
@@ -358,11 +360,19 @@ function(session, input, output) {
   #### Run Classification #####
   observeEvent(input$run_model,{
     withProgress({
+      st <- Sys.time()
+      message(sprintf("Start Time: %s", Sys.time()))
       rv$classification <- show_faults(
         run_classification(sim = simulations(), inputs = input, seed = rv$seed,
                            use_h2o = rv$use_h2o, session = session),
         session = session
       )
+    et <- Sys.time()
+    message(sprintf("End Time: %s", Sys.time()))
+    output$default <- renderText({ 
+      difftime(et, st, units = 'secs')
+    })
+    
     },message = "Progress:", value = 0.2, detail = "Training"
     )
     shinyjs::enable("download_models")
@@ -394,7 +404,6 @@ function(session, input, output) {
     shiny::validate(shiny::need(rv$classification, "No Trained Models Found"))
     if(rv$use_h2o)
       shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
-    
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                          alg = names(MODELS)[which(MODELS %in% input$classifier)]),
                 session = session)
