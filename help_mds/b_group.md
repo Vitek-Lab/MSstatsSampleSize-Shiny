@@ -1,0 +1,1 @@
+One group must be selected as a baseline.
