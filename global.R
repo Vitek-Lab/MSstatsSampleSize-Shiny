@@ -45,3 +45,4 @@ TUNING <- c("Use h2o Package", "Parameter Tuning")
 # config <- h2o_config()
 # h2o::h2o.init(nthreads = 12, max_mem_size = "2g",
 #               log_dir = config$log_dir, log_level = config$log_level)
+

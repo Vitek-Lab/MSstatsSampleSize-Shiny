@@ -370,7 +370,8 @@ function(session, input, output) {
     et <- Sys.time()
     message(sprintf("End Time: %s", Sys.time()))
     output$default <- renderText({ 
-      difftime(et, st, units = 'secs')
+      sprintf("Classification Completed in %s minutes",
+              round(difftime(et, st, units = 'min'), digits = 2))
     })
     
     },message = "Progress:", value = 0.2, detail = "Training"

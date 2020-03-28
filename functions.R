@@ -111,18 +111,24 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   if(format == 'standard'){
     status(detail = 'Importing Protein Abundance file', value = 0.4,
            session = session)
+    #read abundance data from the file path provided
     wide <- fread(count$datapath, keepLeadingZeros = T)
+    #No column names expected for the protein columns
+    #TODO make this name agnostic 
     setnames(wide, 'V1', 'Protein')
     status(detail = 'Importing Annotations file', value = 0.5,
            session = session)
+    #read annotations from the file path provided
     annot <- fread(annot$datapath, keepLeadingZeros = T)
     name <- count$name
+    
   }else if(format == 'examples'){
     status(detail = 'Importing Data from MSstatsSampleSize Package', value = 0.5,
            session = session)
-    
+    #example data from the package
     wide <- as.data.table(MSstatsSampleSize::OV_SRM_train,
                                       keep.rownames = T)
+    #examples data from the package
     annot <- as.data.table(MSstatsSampleSize::OV_SRM_train_annotation)
     setnames(wide,'rn','Protein')
     name <- "Ovarian Cancer SRM study"
@@ -131,16 +137,21 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   }
   
   status(detail = 'Stretching the data', value = 0.6, session = session)
-  data <- tidyr::gather(wide, 'BioReplicate', 'Abundance', 2:ncol(wide))
-  
+  #convert data to the long form
+  data <- melt(wide, id.vars = 'Protein', variable.name = 'BioReplicate',
+               value.name = 'Abundance')
   status(detail = 'Merging Abundance & Spectral Counts with Annotations', 
          value = 0.7, session = session)
+  #merge the abundance data with the annotation data with the correct runs/bioreps
   if("Run" %in% names(annot)){
-    data <- merge(as.data.table(data), annot, by.y = "Run", by.x = "BioReplicate")
+    data <- merge(data, annot[, BioReplicate := NULL],
+                  by.y = "Run", by.x = "BioReplicate")
+    annot[, BioReplicate := NULL]
+    setnames(annot, 'Run', 'BioReplicate')
   }else{
-    data <- merge(as.data.table(data), annot, by = 'BioReplicate') 
+    data <- merge(data, annot, by = 'BioReplicate') 
   }
-  
+
   
   return(list('long_data' = data, 'wide_data' = wide, 'annot_data' = annot,
               'n_prot' = nrow(wide[,.N, Protein]), 
@@ -158,22 +169,25 @@ generate_plots_explore <- function(formatted_data = NULL, session = NULL){
   shiny::validate(shiny::need(formatted_data, 'No Data Found to visualize'))
   status(detail = 'Creating Boxplot for Protein Abundace', value = 0.8,
          session = session)
-  
+  #create the interactive boxplot for all the different proteins found in the data
   box_plot <- plotly::plot_ly(data = formatted_data$long_data[!is.na(Abundance)],
                        y = ~log(Abundance), x = ~BioReplicate, color = ~Condition,
                        type = "box") %>%
     plotly::layout(xaxis = list(title="Biological Replicate"), 
                    yaxis = list(title="Log Protein abundance"),
-                   legend = list(orientation = "h",
+                   legend = list(orientation = "h", #position and of the legend
                                  xanchor = "center",
                                  x = 0.5, y = 1.1)) %>%
-    plotly::config(displayModeBar = F)
+    plotly::config(displayModeBar = F) #hide controls of the plotly chart
   
   status(detail = 'Estimating Variance', value = 0.85, session = session)
+  #calculate the variance among the data
+  #TODO refactor this function so run faster/more functionalization
   est_var <- MSstatsSampleSize::estimateVar(data = formatted_data$wide_data,
                                             annot = formatted_data$annot_data)
   
   status(detail = 'Creating Mean/SD plots', value = 0.95, session = session)
+  #plot the mean and variance plots
   meansd_plot <- meanSDplot(data = est_var)
   
   return(list('boxplot' = box_plot, 'meanSDplot' = meansd_plot))
@@ -356,24 +370,29 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
     status(detail = "Validation Simulation requested", value = 0.2, session = session)
   }
   
-  status(detail = "Running Simulation", value = 0.5, session = session)
+  status(detail = "Starting Simulation", value = 0.3, session = session)
   
-  data_mat <- as.matrix(data[,-1])
-  rownames(data_mat) <- data$Protein
+  data_mat <- data.table:::as.matrix.data.table(data, rownames = 'Protein')
   
   sim <- list()
   for(i in samp){
-    sim[[paste(i)]] <- MSstatsSampleSize::simulateDataset(data = data_mat,
-                                                   annotation = annot,
-                                                   num_simulations = num_simulation,
-                                                   expected_FC = fc,
-                                                   list_diff_proteins =  diff_prots,
-                                                   select_simulated_proteins = sel_simulated_proteins,
-                                                   protein_proportion = prot_proportion,
-                                                   protein_number = prot_number,
-                                                   samples_per_group = i,
-                                                   simulate_valid = as.logical(sim_valid),
-                                                   valid_samples_per_group = valid_samples_per_grp)
+    status(detail = sprintf("Running Simulation for sample %s of %s", which(i == samp),
+                            length(samp)),
+           value = which(i==samp)/length(samp), 
+           session = session)
+    
+    sim[[paste(i)]] <- simulateDataset(data = data_mat,
+                                       annotation = annot,
+                                       num_simulations = num_simulation,
+                                       expected_FC = fc,
+                                       list_diff_proteins =  diff_prots,
+                                       select_simulated_proteins = sel_simulated_proteins,
+                                       protein_proportion = prot_proportion,
+                                       protein_number = prot_number,
+                                       samples_per_group = i,
+                                       simulate_valid = as.logical(sim_valid),
+                                       valid_samples_per_group = valid_samples_per_grp)
+    gc()
   }
   
   status(detail = "Simulation Complete", value = 0.9, session = session)
@@ -382,18 +401,20 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
 
 #### Classification #####
 
-sample_size_classification <- function(n_samp, sim_data, classifier, session = NULL){
+sample_size_classification <- function(n_samp, sim_data, classifier, par = T, session = NULL){
   samp <- unlist(strsplit(n_samp,','))
   df <- data.table(Parameter = c("Sample Size", "Pred Accuracy", "Feature Importance"),
                    Value = c(NA, NA, NA))
   resi <- f_imp <- pred_acc <- list()
+  if(classifier == 'nnet')
+    par <- F
   
   for(i in seq_along(samp)){
     val <- i/length(samp)
     status(detail = sprintf("Classifying Sample Size %s of %s", i, length(samp)),
            session = session, value = val)
     res <- MSstatsSampleSize::designSampleSizeClassification(
-      simulations = sim_data[[samp[i]]], classifier = classifier, parallel = F 
+      simulations = sim_data[[samp[i]]], classifier = classifier, parallel = par 
     )
     resi[[as.character(samp[i])]] <- res
     f_imp[[as.character(samp[i])]] <- res$feature_importance
@@ -413,12 +434,35 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                             session = NULL){
   #browser()
   samp <- unlist(strsplit(n_samp,','))
-  library(foreach)
-  library(doParallel)
-  options(cores = detectCores())
-  registerDoParallel()
   config <- h2o_config()
+  # h2o::h2o.init(nthreads = -1, max_mem_size = config$max_mem, log_dir = config$log_dir,
+  #               log_level = config$log_level)
+  
+ 
+  suppressPackageStartupMessages({
+    library(snow)
+    library(foreach)
+    library(doParallel)})
+  options(cores = detectCores())
+  cl <- makeCluster(detectCores()/2, type = 'SOCK')
+  registerDoParallel(cl)
+  
   modelz <- list()
+  
+  # vars <- foreach(i = samp, .combine = "c",
+  #                 .packages = c("h2o","data.table"),
+  #                 .errorhandling = "stop",
+  #                 .verbose=TRUE) %do% {
+  #                   var <- sprintf("valid_x_%s", i)
+  #                   assign(var, data.table(
+  #                     as.data.table(sim_data[[i]]$valid_X, keep.rownames = T),
+  #                     condition = sim_data[[i]]$valid_Y))
+  #                   assign(var, as.h2o(get(var)))
+  #                   return(var)
+  #                 }
+  
+  
+  
   
   models <- foreach(i = samp, .combine = 'append', 
                     .packages = c("h2o","data.table")) %dopar% {
@@ -486,9 +530,10 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                                                   'var_imp' = var_imp)
                      }
                      h2o.shutdown(prompt = F)
+                     gc()
                      return(modelz)
                     }
-  stopImplicitCluster()
+  stopCluster(cl=cl)
   return(list('models' = models))
 }
 
@@ -513,32 +558,53 @@ h2o_config <- function(){
 plot_acc <- function(data, use_h2o, alg = NA){
   if(use_h2o){
     shiny::validate(shiny::need(data$models, "No Models Run Yet"))
+    #loop through the object returned by classification to extract accuracy
     model_data <- data$models
     df <- rbindlist(lapply(names(model_data), function(x){
       z <- model_data[[x]]
       strs <- unlist(strsplit(x,' '))
       err <- z$model@model$training_metrics@metrics$mean_per_class_error
-      acc <- mean(z$model@model$training_metrics@metrics$thresholds_and_metric_scores$accuracy)
+      acc <- mean(z$model@model$validation_metrics@metrics$thresholds_and_metric_scores$accuracy)
       data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
                  sample = as.factor(gsub("[[:alpha:]]",'',strs[1])),
                  err = err,
-                 mean_acc = ifelse(err==0,1,acc))
+                 mean_acc = acc)
     }))
   }else{
+    #
     shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
     df <- suppressWarnings(melt(rbindlist(data['pred_acc'])))
     names(df) <- c("sample","mean_acc")
   }
+  
   df[, acc := mean(mean_acc), sample]
   
-  p <- ggplot(data = df)+
-    geom_boxplot(aes(x = sample , y = mean_acc, group = sample))+
-    geom_point(aes(x = sample, y = acc))+
-    geom_line(aes(x = sample, y = acc, group = 1), size = 0.75, color = "blue",
-              alpha = 0.25)+
-    labs(x = "Simulated Sample Set", y = "Predictive Accuracy",
-         title = sprintf("Classifier %s", alg))+
+  mean_PA <- df$mean_acc
+  sample_size <- df$sample
+  dydx <- diff(mean_PA)/diff(as.numeric(as.character(sample_size)))
+  
+  if(any(dydx >= 0.0001)){
+    optimal_index <- which(dydx >= 0.0001)[length(which(dydx >= 0.0001))] + 1
+    optimal_sample_size_per_group <- sample_size[optimal_index]
+  } else{
+    optimal_sample_size_per_group <- sample_size[1]
+  }
+  
+  y_lim <- c(df[,min(acc, na.rm = T)]-0.1, 1)
+  df[sample == optimal_sample_size_per_group, fill_col := 'red']
+  
+  p <- ggplot(data = df, aes(x = sample))+
+    geom_boxplot(aes(y = mean_acc, group = sample, fill = fill_col), alpha = 0.5)+
+    scale_fill_identity()+
+    # geom_vline(xintercept = optimal_sample_size_per_group, color = 'red', size= 0.75)+
+    geom_point(aes(y = acc))+
+    geom_line(aes(y = acc, group = 1), size = 0.75, color = "blue")+
+    labs(x = "Simulated Sample Size", y = "Predictive Accuracy",
+         title = sprintf("Classifier %s", alg),
+         caption = "The highlighted box has the highest accuracy for the given sample size")+
+    ylim(y_lim)+
     theme_MSstats()
+  
   
   return(p)
 }
@@ -570,7 +636,6 @@ plot_var_imp <- function(data, sample = 'all', alg = '', use_h2o, prots = 10){
       dt
     }))
     
-    #
     df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
     df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
     
@@ -647,3 +712,119 @@ run_classification <- function(sim, inputs, use_h2o, seed, session = session){
 
 
 
+
+
+
+
+###################
+
+
+simulateDataset <- function (data, annotation, num_simulations = 10,
+                             expected_FC = "data", list_diff_proteins = NULL,
+                             select_simulated_proteins = "proportion", 
+                             protein_proportion = 1, protein_number = 1000,
+                             samples_per_group = 50, simulate_validation = FALSE,
+                             valid_samples_per_group = 50){
+  
+  parameters <- MSstatsSampleSize::estimateVar(data, annotation)
+  data <- data[, annotation$BioReplicate]
+  group <- as.factor(as.character(annotation$Condition))
+  num_total_proteins <- nrow(data)
+  mu <- parameters$mu
+  sigma <- parameters$sigma
+  promean <- parameters$promean
+  proteins <- parameters$protein
+  if (is.element("data", expected_FC)) {
+    sim_mu <- mu
+    sim_sigma <- sigma
+  }
+  else {
+    sim_mu <- mu
+    sim_sigma <- sigma
+    baseline <- names(expected_FC)[expected_FC == 1]
+    otherlines <- names(expected_FC)[expected_FC != 1]
+    for (i in seq_along(otherlines)) {
+      sim_mu[rownames(sim_mu) %in% list_diff_proteins, 
+             otherlines[i]] <- sim_mu[rownames(sim_mu) %in% 
+                                        list_diff_proteins, baseline] * expected_FC[otherlines[i]]
+      sim_mu[!rownames(sim_mu) %in% list_diff_proteins, 
+             otherlines[i]] <- sim_mu[!rownames(sim_mu) %in% 
+                                        list_diff_proteins, baseline]
+    }
+  }
+  ngroup <- length(unique(group))
+  num_samples <- rep(samples_per_group, ngroup)
+  names(num_samples) <- unique(group)
+  train_size <- samples_per_group * ngroup
+  status(detail = paste(" Size of training data to simulate: ", train_size))
+  if (select_simulated_proteins == "proportion") {
+    nproteins <- nrow(mu)
+    protein_num <- round(nproteins * protein_proportion)
+  }
+  else {
+    protein_num <- protein_number
+  }
+  selectedPros <- order(promean, decreasing = TRUE)[1:protein_num]
+  mu_2 <- mu[selectedPros, ]
+  sigma_2 <- sigma[selectedPros, ]
+  if (simulate_validation) {
+    valid <- MSstatsSampleSize:::.sampleSimulation(m = valid_samples_per_group, 
+                               mu = mu_2, sigma = sigma_2)
+    valid_X <- as.data.frame(valid$X)
+    valid_Y <- as.factor(valid$Y)
+  }
+  else {
+    valid_X <- as.data.frame(apply(data[selectedPros, ], 
+                                   1, function(x) MSstatsSampleSize:::.randomImputation(x)))
+    valid_Y <- as.factor(group)
+  }
+  status(detail = paste(" Number of proteins to simulate: ", protein_num))
+  status(detail = " Start to run the simulation...")
+  simulation_train_Xs <- list()
+  simulation_train_Ys <- list()
+  for (i in seq_len(num_simulations)) {
+    status(detail = paste("  Simulation: ", i))
+    train <- MSstatsSampleSize:::.sampleSimulation(m = samples_per_group, mu = mu_2, 
+                               sigma = sigma_2)
+    X <- as.data.frame(train$X)
+    Y <- as.factor(train$Y)
+    simulation_train_Xs[[paste("Simulation", i, sep = "")]] <- X
+    simulation_train_Ys[[paste("Simulation", i, sep = "")]] <- Y
+    gc()
+  }
+  
+  status(detail = " Simulation completed.")
+  return(list(num_proteins = protein_num, num_samples = num_samples, 
+              simulation_train_Xs = simulation_train_Xs, simulation_train_Ys = simulation_train_Ys, 
+              input_X = t(data), input_Y = group, valid_X = valid_X, 
+              valid_Y = valid_Y))
+}
+
+
+
+
+sampleSimulation <- function (m, mu, sigma) {
+  nproteins <- nrow(mu)
+  ngroup <- ncol(mu)
+  sigma <- sigma[, colnames(mu)]
+  samplesize <- rep(m, ngroup)
+  sim_matrix <- matrix(rep(0, nproteins * sum(samplesize)), 
+                       ncol = sum(samplesize))
+  
+  for (i in seq_len(nproteins)) {
+    index <- 1
+    for (j in seq_len(ngroup)) {
+      sim_matrix[i, index:(index + samplesize[j] - 1)] <- rnorm(samplesize[j], 
+                                                                mu[i, j], sigma[i, j])
+      index <- index + samplesize[j]
+    }
+  }
+  
+  sim_matrix <- t(sim_matrix)
+  colnames(sim_matrix) <- rownames(mu)
+  group <- rep(colnames(mu), times = samplesize)
+  index <- sample(length(group), length(group))
+  sim_matrix <- sim_matrix[index, ]
+  group <- group[index]
+  return(list(X = sim_matrix, Y = as.factor(group)))
+}
