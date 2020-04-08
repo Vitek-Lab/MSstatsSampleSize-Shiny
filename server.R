@@ -196,6 +196,7 @@ function(session, input, output) {
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
+                      var = data()$var,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
                       list_diff_proteins = input$diff_prot,
