@@ -406,7 +406,6 @@ simulate_grid <- function(data = NULL, annot = NULL, var = NULL, num_simulation,
 sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
                                        family = 'binomial', session = NULL){
   samp <- unlist(strsplit(n_samp,','))
-  
   pred_acc <- list()
   f_imp <- list()
   models <- list()
@@ -748,6 +747,7 @@ plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
     
     df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
     df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
+    df[, relative_importance := scaled_importance]
     
   }else{
     if(sample == 'all'){
@@ -759,11 +759,13 @@ plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
     df <- rbindlist(lapply(sample, function(x){
       d <- data$f_imp[[x]]
       d[, sample_size := paste("SampleSize",x)]
-      setnames(d, c('protein.rn', 'importance'), c('variable', 'relative_importance'))
+      setnames(d, c('protein.rn', 'importance'),
+               c('variable', 'relative_importance'),
+               skip_absent = T)
     }))
     
     if(prots == 'all'){
-      prots <- df[,.N,sample_size][,unique(N)]
+      prots <- max(df[,.N,sample_size][,unique(N)], na.rm = T)
     }
   }
   

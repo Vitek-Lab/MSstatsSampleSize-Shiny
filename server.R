@@ -417,7 +417,7 @@ function(session, input, output) {
       shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
     
     show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
-                             use_h2o = rv$use_h2o),
+                             alg = input$classifier,use_h2o = rv$use_h2o),
                 session = session)
 
   })
@@ -428,13 +428,14 @@ function(session, input, output) {
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <- plot_var_imp(data = rv$classification, sample = 'all',
-                            use_h2o = rv$use_h2o, prots = 'all')
+                            use_h2o = rv$use_h2o, alg = input$classifier,
+                            prots = 'all')
       withProgress({
         pdf(file = file, height = 9, width = 6.5)
         print(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                        alg = names(MODELS)[which(MODELS %in% input$classifier)]))
         for(i in seq_along(plots)){
-          status(sprintf("Plottint %s plot", i), value = i/length(plots),
+          status(sprintf("Plotting %s plot", i), value = i/length(plots),
                  session = session)
           print(plots[[i]])
         }
