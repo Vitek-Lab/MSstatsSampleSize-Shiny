@@ -426,8 +426,8 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
     if(length(unique(sim_data[[i]]$input_Y)) > 2){
       family <- 'multinomial'
     }
-
-
+    
+    tryCatch({
     for(j in seq_along(list_x)){
       if(max_val == 0){
         max_val <- length(list_x) * length(samp)
@@ -440,10 +440,14 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
       
       df <- cbind('condition' = list_y[[j]],
                   list_x[[j]])
-      res[[paste0('Sim',j)]] <- classify(df = df, val = valid, alg = classifier,
+      res[[paste0('Sim',j)]] <- classify(df = cbind('condition' = list_y[[j]],
+                                                    list_x[[j]]), 
+                                         val = valid, alg = classifier,
                                          family = family, k = k)
     }
-    
+    }, error = function(e){
+      print(e)
+    })
     
     for(j in seq_along(res)){
       acc <- data.frame('Sample' = samp[i],'accuracy' = res[[j]]$accuracy)
@@ -505,6 +509,10 @@ classify <- function(df, val, alg, family, k){
     i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
     setorder(i_ff, -Overall)
     sel_imp <- i_ff[1:k, rn]
+    
+    if(!all(sel_imp %in% names(df))){
+      sel_imp <- gsub('`','',sel_imp)
+    }
     model <- caret::train(make.names(condition)~.,
                           data = df[, c('condition', sel_imp)],
                           method = alg, 
@@ -553,7 +561,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
       iter = iter + 1/max_val
       
       status(detail = sprintf("Classifying Sample Size %s of %s, Simulation %s of %s",
-                              i, length(samp), index, length(train_x_list)),
+                              which(samp == i), length(samp), index, length(train_x_list)),
              session = session, value = iter)
       
       x <- train_x_list[[index]]
