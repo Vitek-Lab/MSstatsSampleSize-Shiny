@@ -472,16 +472,27 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
 
 
 classify <- function(df, val, alg, family, k){
-  
   if(alg == 'logreg'){
     alg = 'glm'
   }
   
+  switch(alg, rf = {
+    tunegrid = data.frame(mtry = 2)
+  }, nnet = {
+    tunegrid = data.frame(size = 5, decay = 0.1)
+  }, svmLinear = {
+    tunegrid = data.frame(C = 1)
+  }, naive_bayes = {
+    tunegrid = data.frame(laplace = 0, usekernel = FALSE, 
+                          adjust = 1)
+  })
+  
+  
   if(alg == 'glm'){
     if(family == 'multinomial'){
-      model <- nnet::multinom(condition~., data, maxit, MaxNWts = 84581)
+      model <- nnet::multinom(condition~., data = df, maxit = 1000, MaxNWts = 84581)
       f_imp <- caret::varImp(model, scale = T)
-      sel_imp <- rownames(f_imp)[1:k]
+      sel_imp <- na.omit(rownames(f_imp)[1:k])
       sel_imp <- gsub('`','',sel_imp)
       model <- nnet::multinom(condition~., data = df[, c('condition', sel_imp)],
                               maxit=1000,MaxNWts=84581)
@@ -493,8 +504,9 @@ classify <- function(df, val, alg, family, k){
       f_imp <- caret::varImp(model, scale = TRUE)
       i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
       setorder(i_ff, -Overall)
-      sel_imp <- i_ff[1:k, rn]
-      model <- caret::train(x = x[,sel_imp], y = make.names(y), 
+      sel_imp <- na.omit(i_ff[1:k, rn])
+      model <- caret::train(make.names(condition)~., 
+                            data = df[, c('condition', sel_imp)], 
                             method = alg,
                             trControl = caret::trainControl(method = "none",
                                                             classProbs = TRUE))
@@ -503,10 +515,14 @@ classify <- function(df, val, alg, family, k){
     model <- caret::train(make.names(condition)~., data = df,
                           method = alg, 
                           trControl = caret::trainControl(method = "none", 
-                                                          classProbs = TRUE)) 
+                                                          classProbs = TRUE),
+                          tuneGrid = tunegrid) 
     
     f_imp <- caret::varImp(model, scale = TRUE)
     i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
+    if(alg %in% c('svmLinear', 'naive_bayes')){
+      i_ff[, Overall := rowMeans(i_ff[, -1], na.rm = T)]
+    }
     setorder(i_ff, -Overall)
     sel_imp <- i_ff[1:k, rn]
     
@@ -517,7 +533,8 @@ classify <- function(df, val, alg, family, k){
                           data = df[, c('condition', sel_imp)],
                           method = alg, 
                           trControl = caret::trainControl(method = "none", 
-                                                          classProbs = TRUE)) 
+                                                          classProbs = TRUE),
+                          tuneGrid = tunegrid) 
     
   }
   
@@ -727,6 +744,7 @@ plot_acc <- function(data, use_h2o, alg = NA){
 }
 
 plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
+  browser()
   if(use_h2o){
     if(prots == 'all'){
       prots <- nrow(data$models[[1]]$var_imp)
@@ -770,6 +788,7 @@ plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
       setnames(d, c('protein.rn', 'importance'),
                c('variable', 'relative_importance'),
                skip_absent = T)
+      d[!is.na(variable)]
     }))
     
     if(prots == 'all'){
@@ -788,7 +807,8 @@ plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
     as.data.table()
   
   g <- lapply(dt[,unique(sample_size)], function(x){
-    ggplot(data = head(dt[sample_size == x], prots), aes(variable, relative_importance))+
+    ggplot(data = head(dt[sample_size == x], prots),
+           aes(variable, relative_importance))+
       geom_col()+
       labs(x = "Protein", y = "Relative Importance", title = x)+
       scale_x_discrete(breaks = dt$variable,
