@@ -411,6 +411,7 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
               "sum_table" = as.matrix(sum_table), "est_var" = var))
 }
 
+
 #' @title Get summary table for the annotation data
 #' @description Get the summary for the unique bioreplicates and number of
 #' MS runs for the data that is provided
@@ -606,7 +607,7 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
   models <- list()
   max_val <- 0
   iter <- 0
-  browser()
+  
   for(i in seq_along(samp)){
     
     res <- list()
@@ -685,20 +686,23 @@ classify <- function(df, val, alg, family, k){
     tunegrid = data.frame(laplace = 0, usekernel = FALSE, 
                           adjust = 1)
   }, logreg = {
-    tunegrid = data.frame(decay = 0.2)
+    tunegrid = data.frame(decay = 0.2, maxit = 1000)
   })
   
   if(family != "multinomial" && alg == 'logreg'){
     model <- caret::train(make.names(condition)~.,data = df,
-                          method = "glm", family = family,
+                          method = 'glm', family = family,
                           trControl = caret::trainControl(method = "none",
                                                           classProbs = TRUE),
-                          tuneGrid = tunegrid)
+                          maxit = 1000)
     
     f_imp <- caret::varImp(model, scale = TRUE)
     i_ff <- data.table::as.data.table(f_imp, keep.rownames = T)
     setorder(i_ff, -Overall)
     sel_imp <- i_ff[1:k][!is.na(rn), rn]
+    if(!all(sel_imp %in% names(df))){
+      sel_imp <- gsub("`|\\\\","",sel_imp)
+    }
     model <- caret::train(make.names(condition)~.,
                           data = df[ ,c("condition", sel_imp)],
                           method = "glm",
@@ -752,7 +756,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                             seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
                             session = NULL){
-  browser()
+  
   samp <- unlist(strsplit(n_samp,","))
   config <- h2o_config()
   h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
