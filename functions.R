@@ -592,7 +592,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                                        valid_samples_per_group = valid_samples_per_grp)
     gc()
   }
-  
+  saveRDS(sim, "h20_test.rds")
   status(detail = "Simulation Complete", value = 0.9, session = session)
   return(sim)
 }
@@ -686,7 +686,7 @@ classify <- function(df, val, alg, family, k){
     tunegrid = data.frame(laplace = 0, usekernel = FALSE, 
                           adjust = 1)
   }, logreg = {
-    tunegrid = data.frame(decay = 0.2, maxit = 1000)
+    tunegrid = data.frame(decay = 0.2)
   })
   
   if(family != "multinomial" && alg == 'logreg'){
@@ -697,7 +697,7 @@ classify <- function(df, val, alg, family, k){
                           maxit = 1000)
     
     f_imp <- caret::varImp(model, scale = TRUE)
-    i_ff <- data.table::as.data.table(f_imp, keep.rownames = T)
+    i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
     setorder(i_ff, -Overall)
     sel_imp <- i_ff[1:k][!is.na(rn), rn]
     if(!all(sel_imp %in% names(df))){
@@ -708,7 +708,7 @@ classify <- function(df, val, alg, family, k){
                           method = "glm",
                           trControl = caret::trainControl(method = "none",
                                                           classProbs = TRUE),
-                          tuneGrid = tunegrid)
+                          maxit = 1000)
   } else {
     if(alg == 'logreg'){
       alg <- 'multinom'
