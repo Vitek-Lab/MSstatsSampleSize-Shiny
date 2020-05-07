@@ -269,24 +269,61 @@ dashboardPage(
               column(width = 3, 
                      selectInput(inputId = "stop_metric", 
                                  label = "Stopping Metric",
-                                 choices = STOPPING_METRIC),
+                                 choices = STOPPING_METRIC) %>%
+                       shinyhelper::helper(content = "h2o_stopping_metric",
+                                           id = "stop_metric_help"),
+                     
                      numericInput(inputId = "nfolds", label = "N-Folds",
-                                  value = 0, min = 0, max = 100, step = 1),
+                                  value = 0, min = 0, max = 100, step = 1)%>%
+                       shinyhelper::helper(content  = "h2o_nfold",
+                                           id = "nfolds_help"),
+                     
                      selectInput(inputId = "f_assignment", label = "Fold Assignment",
-                                 choices = FOLD_ASSIGNMENT),
+                                 choices = FOLD_ASSIGNMENT) %>%
+                       shinyhelper::helper(content = "h2o_f_assignment",
+                                           id = "f_assignment_help"),
+                     
                      numericInput(inputId = "iters", label = "Iterations", value = 200,
-                                  min = 1, max = 1000, step = 10),
+                                  min = 1, max = 1000, step = 10) %>%
+                       shinyhelper::helper(content = "h2o_iters",
+                                           id = "iters_help"),
+                     
                      selectInput(inputId = "family", label = "Family", choices = FAMILY,
-                                 selected = "binomial"),
+                                 selected = "binomial") %>%
+                       shinyhelper::helper(content = "h2o_family",
+                                           id = "family_help"),
+                     
                      sliderInput(inputId = "laplace", label = "Laplace", min = 0,
-                                 max = 1, value = 0)),
+                                 max = 1, value = 0) %>%
+                       shinyhelper::helper(content = "h2o_laplace",
+                                           id = "laplace_help"),
+                     
+                     numericInput(inputId = "caret_rf", 
+                                  label = "Variables to Randomly Sample", 
+                                  value = 2, min = 1, max = 1000, step = 1)%>%
+                       shinyhelper::helper(content = "caret_rf",
+                                           id = "caret_rf_help")
+                     ),
               column(width = 3,
-                     selectInput(inputId = "link", label = "Link", choices = LINK),
-                     selectInput(inputId = "solver", label = "Solver", choices = SOLVER),
+                     selectInput(inputId = "link", label = "Link", 
+                                 choices = LINK) %>%
+                       shinyhelper::helper(content = "h2o_link",
+                                           id = "link_help"),
+                     
+                     selectInput(inputId = "solver", label = "Solver",
+                                 choices = SOLVER) %>%
+                       shinyhelper::helper(content = "h2o_solver",
+                                           id = "solver_help"),
+                     
                      sliderInput(inputId = "eps_sdev", label = "Cutoff Threshold",
-                                 min = 0, max = 1, step = 0.001, value = 0.01),
+                                 min = 0, max = 1, step = 0.001, value = 0.01) %>%
+                       shinyhelper::helper(content = "h2o_eps_sdev",
+                                           id = "eps_sdev_help"),
+                     
                      sliderInput(inputId = "min_sdev", label = "Minimum SD",
-                                 min = 0.01, value = 0.01, max = 1))
+                                 min = 0.01, value = 0.01, max = 1) %>%
+                       shinyhelper::helper(content = "h2o_min_sdev",
+                                           id = "min_sdev_help"))
           ),
           verbatimTextOutput("v3")
         ),
