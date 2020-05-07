@@ -390,7 +390,6 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   if("Run" %in% names(annot)){
     data <- merge(data, annot[, BioReplicate := NULL],
                   by.y = "Run", by.x = "BioReplicate")
-    annot[, BioReplicate := NULL]
     setnames(annot, "Run", "BioReplicate")
   }else{
     data <- merge(data, annot, by = "BioReplicate") 
@@ -468,6 +467,8 @@ make_pca_plots <- function(simulations, which = "all", address = NA,
                            sim_y = simulations$simulation_train_Ys[[i]])
       pc_plot[[i]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var)
     }
+  }else{
+    stop(Sys.time()," Improper which arguement provided")
   }
   
   if(!is.na(address) | which == "all"){
@@ -605,7 +606,7 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
   models <- list()
   max_val <- 0
   iter <- 0
-  
+  browser()
   for(i in seq_along(samp)){
     
     res <- list()
@@ -661,7 +662,19 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
 }
 
 
+#' @title Fit a classification Model
+#' @description Fits a given classification model to the data provided
+#' @param df A data.frame with the protein abundances and group information for 
+#' training the model
+#' @param val A data.frame with the protein abundances and group information for
+#' validation of the model
+#' @param alg The classifier to apply
+#' @param family Family of function to apply (only for Logistic Regression)
+#' @param k Number of features to select for model training
+#' @return A named list containing the trained model, accuracy and raw features
+#' importances
 classify <- function(df, val, alg, family, k){
+  
   switch(alg, rf = {
     tunegrid = data.frame(mtry = 2)
   }, nnet = {
@@ -671,49 +684,37 @@ classify <- function(df, val, alg, family, k){
   }, naive_bayes = {
     tunegrid = data.frame(laplace = 0, usekernel = FALSE, 
                           adjust = 1)
+  }, logreg = {
+    tunegrid = data.frame(decay = 0.2)
   })
   
-  
-  if(alg == "logreg"){
-    if(family == "multinomial"){
-      model <- nnet::multinom(condition~., data = df, maxit = 1000, MaxNWts = 84581)
-      f_imp <- as.data.table(caret::varImp(model, scale = T), keep.rownames = T)
-      setorder(f_imp, -Overall)
-      sel_imp <- f_imp[!is.na(rn), rn][1:k]
-      sel_imp <- gsub("`","",sel_imp)
-      model <- nnet::multinom(condition~.,
-                              data = df[ ,c("condition", sel_imp)],
-                              maxit=1000, MaxNWts=84581)
-    } else {
-      tunegrid = data.frame(maxit = 1000)
-      model <- caret::train(make.names(condition)~.,data = df,
-                            method = "glm", family = family,
-                            trControl = caret::trainControl(method = "none",
-                                                            classProbs = TRUE),
-                            tuneGrid = tunegrid)
-      
-      # model <- glm(condition~., family = binomial(), data = df,
-      #              control = list(maxit = 1000))
-      f_imp <- caret::varImp(model, scale = TRUE)
-      i_ff <- data.table::as.data.table(f_imp, keep.rownames = T)
-      setorder(i_ff, -Overall)
-      sel_imp <- i_ff[1:k][!is.na(rn), rn]
-      # model <- glm(condition~., family = binomial(), data = df[, c("condition", sel_imp)],
-      #              control = list(maxit = 1000))
-      model <- caret::train(make.names(condition)~.,
-                            data = df[ ,c("condition", sel_imp)],
-                            method = "glm",
-                            trControl = caret::trainControl(method = "none",
-                                                            classProbs = TRUE),
-                            tuneGrid = tunegrid)
-    }
+  if(family != "multinomial" && alg == 'logreg'){
+    model <- caret::train(make.names(condition)~.,data = df,
+                          method = "glm", family = family,
+                          trControl = caret::trainControl(method = "none",
+                                                          classProbs = TRUE),
+                          tuneGrid = tunegrid)
+    
+    f_imp <- caret::varImp(model, scale = TRUE)
+    i_ff <- data.table::as.data.table(f_imp, keep.rownames = T)
+    setorder(i_ff, -Overall)
+    sel_imp <- i_ff[1:k][!is.na(rn), rn]
+    model <- caret::train(make.names(condition)~.,
+                          data = df[ ,c("condition", sel_imp)],
+                          method = "glm",
+                          trControl = caret::trainControl(method = "none",
+                                                          classProbs = TRUE),
+                          tuneGrid = tunegrid)
   } else {
+    if(alg == 'logreg'){
+      alg <- 'multinom'
+    }
     model <- caret::train(make.names(condition)~.,
                           data = df,
                           method = alg, 
                           trControl = caret::trainControl(method = "none", 
                                                           classProbs = TRUE),
-                          tuneGrid = tunegrid) 
+                          tuneGrid = tunegrid, MaxNWts = 80000, maxit = 1000) 
     
     f_imp <- caret::varImp(model, scale = TRUE)
     i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
@@ -721,10 +722,10 @@ classify <- function(df, val, alg, family, k){
       i_ff[, Overall := rowMeans(i_ff[, -1], na.rm = T)]
     }
     setorder(i_ff, -Overall)
-    sel_imp <- i_ff[1:k, rn]
+    sel_imp <- i_ff[1:k][!is.na(rn), rn]
     
     if(!all(sel_imp %in% names(df))){
-      sel_imp <- gsub("`","",sel_imp)
+      sel_imp <- gsub("`|\\\\","",sel_imp)
     }
     model <- caret::train(make.names(condition)~.,
                           data = df[ ,c("condition", sel_imp)],
@@ -751,10 +752,10 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                             seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
                             session = NULL){
-  
+  browser()
   samp <- unlist(strsplit(n_samp,","))
   config <- h2o_config()
-  h2o::h2o.init(nthreads = -1, max_mem_size = "1g",
+  h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
                 log_dir = config$log_dir, log_level = config$log_level)
   max_val <- 0
   iter <- 0
@@ -825,6 +826,9 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                                seed = seed, validation_frame = valid,
                                disable_training_metrics = F)
       } else if (classifier == "logreg"){
+        if(length(unique(as.vector(train[,1]))) > 2){
+          family <- "multinomial"
+        }
         model <- h2o::h2o.glm(y = 1, training_frame = train,
                               seed = seed, family = family, alpha = alpha, 
                               nfolds = nfolds, solver = solver,
@@ -882,7 +886,6 @@ run_classification <- function(sim, inputs, use_h2o, seed, session = session){
     
     classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
                                                  sim_data = sim,
-                                                 #alg = inputs$
                                                  classifier = inputs$classifier,
                                                  session = session)
   }

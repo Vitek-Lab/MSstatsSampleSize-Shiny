@@ -70,8 +70,8 @@ function(session, input, output) {
   )
   # Boxplot for Proteins
   output$global_boxplot <- plotly::renderPlotly({
-    shiny::validate(shiny::need(data()$long_data, 'No Data Found to visualize'))
-    qc_boxplot(data = data()$long_data)
+    shiny::validate(shiny::need(data()$box_plot, 'No Data Found to visualize'))
+    data()$box_plot
   })
   # Mean and Standard Deviation Plot
   output$mean_sd_plot <- renderPlot({
@@ -193,7 +193,6 @@ function(session, input, output) {
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
-                      var = data()$var,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
                       list_diff_proteins = input$diff_prot,
