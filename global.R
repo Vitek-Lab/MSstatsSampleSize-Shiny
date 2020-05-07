@@ -1,16 +1,16 @@
 suppressMessages({
-library(shiny)
-library(shinydashboard)
-library(shinyWidgets)
-library(ggplot2)
-library(data.table)
-library(dplyr)
-library(naivebayes)
-library(randomForest)
-library(kernlab)
-library(e1071)
-library(MSstatsSampleSize)
-library(foreach)
+  library(shiny)
+  library(shinydashboard)
+  library(shinyWidgets)
+  library(ggplot2)
+  library(data.table)
+  library(dplyr)
+  library(MSstatsSampleSize)
+  #### Caret package dependencies ####
+  library(e1071)
+  library(kernlab)
+  library(naivebayes)
+  library(randomForest)
 })
 source('functions.R')
 
@@ -28,7 +28,7 @@ names(MODELS) <- c('',"Random Forest", "Neural Network",
 
 STOPPING_METRIC <- c("AUTO", "deviance", "logloss", "MSE", "RMSE", "MAE", "RMSLE",
                      "AUC", "lift_top_group", "misclassification", "AUCPR",
-                     "mean_per_class_error", "custom", "custom_increasing")
+                     "mean_per_class_error")
 
 FOLD_ASSIGNMENT <- c("AUTO", "Random", "Modulo", "Stratified")
 
@@ -44,7 +44,3 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
 
 B_GROUP <- ""
 TUNING <- c("Use h2o Package", "Parameter Tuning")
-# config <- h2o_config()
-# h2o::h2o.init(nthreads = 12, max_mem_size = "2g",
-#               log_dir = config$log_dir, log_level = config$log_level)
-
