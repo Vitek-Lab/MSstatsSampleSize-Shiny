@@ -1,0 +1,1 @@
+A threshold cutoff to deal with numeric instability, must be positive.
