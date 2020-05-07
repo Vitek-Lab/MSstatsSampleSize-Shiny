@@ -60,47 +60,204 @@ status <- function(detail, value, session = NULL){
 }
 
 
-#### Data Exploration ####
-#' @title Explore Data
-#' @description A wrapper function for the explore, plot and summary tables
-#' @param format A character vector passed to the `format_data` function 
-#' @param count A Protein abundance file passed to the `format_data` function
-#' @param annot A annotation file for the protein abundance
-#' @param session A shiny session object passed for progress bar
-#' @return A list object which contains a named list containing the following
-#' information
-#' - data = Contains the formatted input files 
-#' - plots = Contains the boxplot and meanSD plots 
-#' - sum_table = Contains the summary of the data fed
-#' - cond_sum_table = Contains the summary table for the conditions in the data fed
-explore_data <- function(format, count = NULL, annot = NULL, session = NULL){
-  formatted_data <- show_faults(
-    format_data(format = format, count = count, annot = annot, session = session),
-    session = session
-  )
+#' @title H2o configuration
+#' @description Get configuration details of the h2o instance to start, the details
+#' can be specified in the Rprofile.site file in the R installation path
+#' @param NONE
+#' @return A named list containing required h2o configuration details, if none 
+#' provided, defaults are used
+h2o_config <- function(){
+  config <- list()
+  config$threads <- as.numeric(Sys.getenv('nthreads'))
+  config$max_mem <- NULL
+  mem <- Sys.getenv("max_mem")
+  if(mem!= '')
+    config$max_mem <- mem
+  config$log_dir <- Sys.getenv("log_dir")
+  config$log_level <- Sys.getenv("log_level")
   
-  var <- estimateVar(data = formatted_data$wide_data,
-                         annot = formatted_data$annot_data)
+  config$threads <- ifelse(is.na(config$threads), -1, config$threads)
   
-  plots <- show_faults(
-    generate_plots_explore(formatted_data = formatted_data, est_var = var,
-                           session = session),
-    session = session
-  )
+  config$log_dir <- ifelse(config$log_dir == "", getwd(), config$log_dir)
+  config$log_level <- ifelse(config$log_level == "", "INFO", config$log_level)
   
-  sum_table <- data.frame(Parameter =  c("Number of Proteins", "Number of Groups"),
-                          Values = c(formatted_data$n_prot,
-                                     formatted_data$n_group))
-  cond_sum_table <- show_faults(
-    expr = format_summary_table(data = formatted_data$long_data), session = session
-  )
-  data <- append(formatted_data, plots)
-  data <- append(data, list('sum_table' = as.matrix(sum_table),
-                            'cond_sum_table' = cond_sum_table))
-  return(data)
+  return(config) 
 }
 
 
+#' @title Plot Accuracy for Classification Models
+#' @description Extracts information from the classification wrapper, and identifies
+#' the optimal sample size and returns a ggplot object  
+#' @param data A named list as returned by `run_classification()`
+#' @param use_h2o A logical inputs which detemines if h2o was used for classification
+#' @param alg A character vector detemining the name of the classifier used
+#' @return A ggplot2 object
+plot_acc <- function(data, use_h2o, alg = NA){
+  if(use_h2o){
+    #check if required data exists
+    shiny::validate(shiny::need(data$models, "No Models Run Yet"))
+    #loop through the object returned by classification to extract accuracy
+    model_data <- data$models
+    df <- rbindlist(lapply(names(model_data), function(x){
+      z <- model_data[[x]]
+      strs <- unlist(strsplit(x,' '))
+      #TODO this following chunk can be possible done in ss_classify_h2o
+      cm <- z$model@model$validation_metrics@metrics$cm$table
+      cm <- cm[1:(dim(cm)[1]-1),1:(dim(cm)[2] -2)]
+      cm <- as.matrix(sapply(cm, as.numeric))
+      acc <- sum(diag(cm))/sum(cm)
+      #return a data.table with simulation number, sample size as factor and 
+      #the reported accuracy for that combination
+      data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
+                 sample = as.factor(gsub("[[:alpha:]]",'',strs[1])),
+                 mean_acc = acc)
+    }))
+  }else{
+    shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
+    df <- rbindlist(data$pred_acc)
+    names(df) <- c("sample","mean_acc")
+  }
+  #calculate the mean accuracy for the sample
+  df[, acc := mean(mean_acc), sample]
+  ####### Identify the optimal sample size ####
+  opt_df <- unique(df[,.(sample, acc)])
+  setorder(opt_df, -sample)
+  opt_df[, sample := as.numeric(as.character(sample))]
+  opt_df[, lg := (acc - shift(acc))/(sample - shift(sample))]
+  opt_df[, optimal := ifelse(lg >= 0.0001, T, F)]
+  if(nrow(opt_df[, .N, optimal][optimal == T]) != 0){
+    optimal_sample_size <- opt_df[optimal == T][which.min(lg), sample]
+  } else {
+    optimal_sample_size <- opt_df[which.min(sample), sample]
+  }
+  
+  y_lim <- c(df[,min(acc, na.rm = T)]-0.1, 1)
+  df[sample == optimal_sample_size, fill_col := 'red']
+  ######
+  #Plot the accuracy plot
+  p <- ggplot(data = df, aes(x = reorder(sample)))+
+    geom_boxplot(aes(y = mean_acc, group = sample, fill = fill_col), alpha = 0.5)+
+    scale_fill_identity()+
+    geom_point(aes(y = acc))+
+    geom_line(aes(y = acc, group = 1), size = 0.75, color = "blue")+
+    labs(x = "Simulated Sample Size", y = "Predictive Accuracy",
+         title = sprintf("Classifier %s", alg),
+         subtitle = sprintf("Optimum accuracy achieved when sample size is : %s",
+                            optimal_sample_size))+
+    ylim(y_lim)+
+    theme_MSstats()+
+    theme(plot.subtitle = element_text(face = 'italic', color = 'red'))
+  
+  return(p)
+}
+
+
+#' @title Plot Variable Importances
+#' @description Extract information from the classification wrapper and 
+#' retuns the protein importance plots for the selected sample size
+#' @param data A names list as returned by `run_classification()`
+#' @param sample A character vector specifying the sample size
+#' @param alg A vector input with the name of the classifier
+#' @param use_h2o A logical input to extract h2o based data model
+#' @param prots Number of proteins to plots, takes "all" to select all proteins
+#' @return A ggplot2 object
+plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
+  if(use_h2o){
+    #identify number of proteins if complete variable imporatnaces are requested
+    if(prots == 'all'){
+      prots <- nrow(data$models[[1]]$var_imp)
+    }
+    shiny::validate(shiny::need(data$models, "No Trained Models Found"))
+    shiny::validate(
+      shiny::need(!alg %in% c('svmLinear', 'naive_bayes'),
+                  sprintf("Protein Importances for Classifier %s in H2o unavailable",
+                          alg)))
+    data <- data$models
+    samp <- names(data)
+    #extract only those simulations which correspond to the selected sample
+    if(sample != 'all'){
+      samp <- samp[like(samp, sample)]
+    }
+    
+    #extract data from the h2o model structure
+    df <- rbindlist(lapply(samp, function(x){
+      dt <- as.data.table(data[[x]]$var_imp)
+      setorder(dt, -scaled_importance)
+      dt$name <- x
+      dt
+    }))
+    df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
+    df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
+    df[, relative_importance := scaled_importance]
+    
+  }else{
+    if(sample == 'all'){
+      sample <- as.character(data$samp)
+    }else{
+      sample <- gsub("Sample","", sample)
+    }
+    
+    df <- rbindlist(lapply(sample, function(x){
+      d <- data$f_imp[[x]]
+      d[, sample_size := paste("SampleSize",x)]
+      setnames(d, c('protein.rn', 'importance'),
+               c('variable', 'relative_importance'),
+               skip_absent = T)
+      d[!is.na(variable)]
+    }))
+    
+    if(prots == 'all'){
+      prots <- max(df[,.N,sample_size][,unique(N)], na.rm = T)
+    }
+  }
+  #TODO This is ugly needs to be re-thought, partial implementation on dev
+  dt <- df %>%
+    mutate(variable = reorder(variable, relative_importance)) %>%
+    group_by(sample_size, variable) %>%
+    arrange(desc(relative_importance)) %>%
+    ungroup() %>%
+    mutate(variable = factor(paste(variable, sample_size, sep = '_'),
+                             levels = rev(paste(variable, 
+                                                sample_size, sep ='_'))))%>%
+    as.data.table()
+  
+  g <- lapply(dt[,unique(sample_size)], function(x){
+    ggplot(data = head(dt[sample_size == x], prots),
+           aes(variable, relative_importance))+
+      geom_col()+
+      labs(x = "Protein", y = "Relative Importance", title = x)+
+      scale_x_discrete(breaks = dt$variable,
+                       labels = gsub("_.*",'',as.character(dt$variable)))+
+      theme_MSstats()+
+      coord_flip()
+  })
+  names(g) <- dt[,unique(sample_size)]
+  return(g)
+}
+
+
+meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size = 1, 
+                        xlimUp = 30, ylimUp = 3){
+  
+  plotdata <- data.table(mean = as.vector(data$mu), sd = as.vector(data$sigma))
+  plot.lowess <- lowess(cbind(plotdata$mean, plotdata$sd))
+  plot.lowess <- data.table(x = plot.lowess$x, y = plot.lowess$y)
+  
+  ggplot(data = plotdata, aes(mean, sd)) +
+    stat_density2d(aes(fill = ..density..^0.25), geom = "tile", contour = FALSE,
+                   n = xlimUp * 10) +
+    scale_fill_continuous(low = "white", high = "#0072B2") +
+    geom_point(alpha = 0.02, shape = 20) + 
+    geom_line(data = plot.lowess, aes(x, y), color = "orange", size = smoother_size) +
+    labs(x = "Mean protein abundance per condition", 
+         y = "Standard deviation per condition") +
+    scale_y_continuous(expand = c(0,0), limits = c(0, ylimUp)) +
+    scale_x_continuous(expand = c(0,0), limits = c(0, xlimUp)) +
+    theme_MSstats()+
+    theme(legend.position = 'none')
+}
+
+#### Data Exploration ####
 #' @title Formats data to required longer format
 #' @description Formats the input data in the required long and wide format
 #' depending on input data
@@ -120,6 +277,22 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
     #No column names expected for the protein columns
     #TODO make this name agnostic 
     setnames(wide, 'V1', 'Protein')
+    if(length(prots_combinations) > 0){
+      single_prots <- uniq_prots[-grep(',|;', uniq_prots)]
+      v <- do.call('c', lapply(prots_combinations, function(x){
+        comb <- unlist(strsplit(x,',|;'))
+        val <- any(comb %in% single_prots)
+        if(!val){
+          return(x)
+        }
+      }))
+      single_prots <- c(single_prots,v)
+      message(Sys.time()," Old Proteins", length(uniq_prots),
+              ", New Proteins", length(single_prots))
+      
+      wide <- wide[protein %in% single_prots]
+    }
+    name <- count$name
     status(detail = 'Importing Annotations file', value = 0.5,
            session = session)
     #read annotations from the file path provided
@@ -140,6 +313,8 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
     stop('Not Defined')
   }
   
+  data_summary <- format_summary_table(data = annot)
+  
   status(detail = 'Stretching the data', value = 0.6, session = session)
   #convert data to the long form
   data <- melt(wide, id.vars = 'Protein', variable.name = 'BioReplicate',
@@ -156,11 +331,21 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
     data <- merge(data, annot, by = 'BioReplicate') 
   }
 
+  status(detail = 'Estimating Variance', value = 0.8, session = session)
+  var <- estimateVar(data = wide, annot = annot)
+  
+  status(detail = 'Creating Summary Table', value = 0.9, session = session)
+  sum_table <- data.frame(Parameter =  c("Number of Proteins", "Number of Groups"),
+                          Values = c(nrow(wide[,.N, Protein]),
+                                     nrow(annot[,.N,Condition])))
+  
   
   return(list('long_data' = data, 'wide_data' = wide, 'annot_data' = annot,
-              'n_prot' = nrow(wide[,.N, Protein]), 
-              'n_group' = nrow(annot[,.N,Condition]), 'dataset_name' = name))
+              'n_prot' = nrow(wide[,.N, Protein]), 'cond_sum_table' = data_summary,
+              'n_group' = nrow(annot[,.N,Condition]), 'dataset_name' = name,
+              'sum_table' = as.matrix(sum_table), 'est_var' = var))
 }
+
 
 #' @title Generate Exploration Plots and Tables
 #' @description This function generate some data exploration visuals, like the
@@ -169,13 +354,9 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
 #' @param formatted_data A list object as generated by the `format_data` function
 #' @param session A shiny session object to make the notifications interactive
 #' @return A named list of the boxplot and meanSD plot
-generate_plots_explore <- function(formatted_data = NULL, est_var = NULL,
-                                   session = NULL){
-  shiny::validate(shiny::need(formatted_data, 'No Data Found to visualize'))
-  status(detail = 'Creating Boxplot for Protein Abundace', value = 0.8,
-         session = session)
+qc_boxplot <- function(data = NULL){
   #create the interactive boxplot for all the different proteins found in the data
-  box_plot <- plotly::plot_ly(data = formatted_data$long_data[!is.na(Abundance)],
+  box_plot <- plotly::plot_ly(data = data[!is.na(Abundance)],
                        y = ~log(Abundance), x = ~BioReplicate, color = ~Condition,
                        type = "box") %>%
     plotly::layout(xaxis = list(title="Biological Replicate"), 
@@ -185,51 +366,31 @@ generate_plots_explore <- function(formatted_data = NULL, est_var = NULL,
                                  x = 0.5, y = 1.1)) %>%
     plotly::config(displayModeBar = F) #hide controls of the plotly chart
   
-  status(detail = 'Estimating Variance', value = 0.85, session = session)
-  
-  status(detail = 'Creating Mean/SD plots', value = 0.95, session = session)
-  #plot the mean and variance plots
-  meansd_plot <- meanSDplot(data = est_var)
-  
-  return(list('boxplot' = box_plot, 'meanSDplot' = meansd_plot))
+  box_plot
 }
 
 
-meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size = 1, 
-                        xlimUp = 30, ylimUp = 3){
-  
-  plotdata <- data.table(mean = as.vector(data$mu), sd = as.vector(data$sigma))
-  plot.lowess <- lowess(cbind(plotdata$mean, plotdata$sd))
-  plot.lowess <- data.table(x = plot.lowess$x, y = plot.lowess$y)
-  meansdplot <- ggplot(data = plotdata, aes(mean, sd)) +
-    stat_density2d(aes(fill = ..density..^0.25), geom = "tile", contour = FALSE,
-                   n = xlimUp * 10) +
-    scale_fill_continuous(low = "white", high = "#0072B2") +
-    geom_point(alpha = 0.02, shape = 20) + 
-    geom_line(data = plot.lowess, aes(x, y), color = "orange", size = smoother_size) +
-    labs(x = "Mean protein abundance per condition", 
-         y = "Standard deviation per condition") +
-    scale_y_continuous(expand = c(0,0), limits = c(0, ylimUp)) +
-    scale_x_continuous(expand = c(0,0), limits = c(0, xlimUp)) +
-    theme_MSstats()+
-    theme(legend.position = 'none')
-  return(meansdplot)
-}
 
 
 format_summary_table <- function(data = NULL){
-  shiny::validate(need(data, 'No Data Provided'))
-  
-  msruns <- unique(data[,.(BioReplicate, Condition)]) # Placeholder
-  msruns <- xtabs(~Condition, data = msruns) # Placeholder
-  
+  #create crosstable for the conditions vs bioreplicates
   biorep <- unique(data[,.(BioReplicate, Condition)])
   biorep <- xtabs(~Condition, data = biorep)
   
-  summary <- rbind(msruns, biorep)
-  rownames(summary) <- c("# of MS runs","# of Biological Replicates")
-  return(summary[,which(colSums(summary) > 0)])
+  #create crosstable for the conditions vs runs if runs data exists
+  if('run' %in% names(data)){
+    msruns <- unique(data[,.(Run, Condition)])
+    msruns <- xtabs(~Condition, data = msruns)
+  }else{
+    msruns <- rep(0, length(names(biorep)))
+    names(msruns) <- names(biorep) #make runs data 0 if not found
+  }
+  #format it correctly
+  summary <- rbind(biorep, msruns)
+  rownames(summary) <- c("# of Biological Replicates", "# of MS runs")
+  return(summary[,which(colSums(summary, na.rm = T) > 0)])
 }
+
 
 #' @title Make pca plots
 #' @description  A wrapper function which formats all the data to pass to the 
@@ -427,7 +588,6 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
       family <- 'multinomial'
     }
     
-    tryCatch({
     for(j in seq_along(list_x)){
       if(max_val == 0){
         max_val <- length(list_x) * length(samp)
@@ -445,9 +605,6 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
                                          val = valid, alg = classifier,
                                          family = family, k = k)
     }
-    }, error = function(e){
-      print(e)
-    })
     
     for(j in seq_along(res)){
       acc <- data.frame('Sample' = samp[i],'accuracy' = res[[j]]$accuracy)
@@ -472,11 +629,7 @@ sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
 
 
 classify <- function(df, val, alg, family, k){
-  if(alg == 'logreg'){
-    alg = 'glm'
-  }
-  
-  switch(alg, rf = {
+  iswitch(alg, rf = {
     tunegrid = data.frame(mtry = 2)
   }, nnet = {
     tunegrid = data.frame(size = 5, decay = 0.1)
@@ -488,31 +641,42 @@ classify <- function(df, val, alg, family, k){
   })
   
   
-  if(alg == 'glm'){
+  if(alg == 'logreg'){
     if(family == 'multinomial'){
       model <- nnet::multinom(condition~., data = df, maxit = 1000, MaxNWts = 84581)
-      f_imp <- caret::varImp(model, scale = T)
-      sel_imp <- na.omit(rownames(f_imp)[1:k])
+      f_imp <- as.data.table(caret::varImp(model, scale = T), keep.rownames = T)
+      setorder(f_imp, -Overall)
+      sel_imp <- f_imp[!is.na(rn), rn][1:k]
       sel_imp <- gsub('`','',sel_imp)
-      model <- nnet::multinom(condition~., data = df[, c('condition', sel_imp)],
-                              maxit=1000,MaxNWts=84581)
+      model <- nnet::multinom(condition~.,
+                              data = df[ ,c('condition', sel_imp)],
+                              maxit=1000, MaxNWts=84581)
     } else {
+      tunegrid = data.frame(maxit = 1000)
       model <- caret::train(make.names(condition)~.,data = df,
-                            method = alg, family = family,
+                            method = 'glm', family = family,
                             trControl = caret::trainControl(method = "none",
-                                                            classProbs = TRUE))
+                                                            classProbs = TRUE),
+                            tuneGrid = tunegrid)
+      
+      # model <- glm(condition~., family = binomial(), data = df,
+      #              control = list(maxit = 1000))
       f_imp <- caret::varImp(model, scale = TRUE)
-      i_ff <- data.table::as.data.table(f_imp$importance, keep.rownames = T)
+      i_ff <- data.table::as.data.table(f_imp, keep.rownames = T)
       setorder(i_ff, -Overall)
-      sel_imp <- na.omit(i_ff[1:k, rn])
-      model <- caret::train(make.names(condition)~., 
-                            data = df[, c('condition', sel_imp)], 
-                            method = alg,
+      sel_imp <- i_ff[1:k][!is.na(rn), rn]
+      # model <- glm(condition~., family = binomial(), data = df[, c('condition', sel_imp)],
+      #              control = list(maxit = 1000))
+      model <- caret::train(make.names(condition)~.,
+                            data = df[ ,c('condition', sel_imp)],
+                            method = 'glm',
                             trControl = caret::trainControl(method = "none",
-                                                            classProbs = TRUE))
+                                                            classProbs = TRUE),
+                            tuneGrid = tunegrid)
     }
   } else {
-    model <- caret::train(make.names(condition)~., data = df,
+    model <- caret::train(make.names(condition)~.,
+                          data = df,
                           method = alg, 
                           trControl = caret::trainControl(method = "none", 
                                                           classProbs = TRUE),
@@ -530,7 +694,7 @@ classify <- function(df, val, alg, family, k){
       sel_imp <- gsub('`','',sel_imp)
     }
     model <- caret::train(make.names(condition)~.,
-                          data = df[, c('condition', sel_imp)],
+                          data = df[ ,c('condition', sel_imp)],
                           method = alg, 
                           trControl = caret::trainControl(method = "none", 
                                                           classProbs = TRUE),
@@ -554,6 +718,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                             seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
                             session = NULL){
+  
   samp <- unlist(strsplit(n_samp,','))
   config <- h2o_config()
   h2o::h2o.init(nthreads = -1, max_mem_size = '1g',
@@ -608,7 +773,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
         hidden = c(250,250)
         activation = "Rectifier"
         model <- h2o::h2o.deeplearning(y = 1, 
-                                       training_frame = sim_env,
+                                       training_frame = train,
                                        l1= l1, l2=l2,
                                        activation = activation,
                                        hidden = hidden,
@@ -616,13 +781,13 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
         found_imp <- h2o::h2o.varimp(model)
         sel_imp <- found_imp$variable[1:10]
         train <- h2o::as.h2o(cbind('condition'=y,x[,sel_imp]), destination_frame = 'train')
-        model <- h2o::h2o.deeplearning(y = 1, training_frame = sim_env,
-                                       validation_frame = val, l1 = l1, l2 = l2,
+        model <- h2o::h2o.deeplearning(y = 1, training_frame = train,
+                                       validation_frame = valid, l1 = l1, l2 = l2,
                                        activation = activation, hidden = hidden,
                                        epochs = epochs)
         
       } else if (classifier == "svmLinear"){
-        model <- h2o::h2o.psvm(x = x, y = y, training_frame = train, 
+        model <- h2o::h2o.psvm(y = 1, training_frame = train, 
                                max_iterations = iters,
                                seed = seed, validation_frame = valid,
                                disable_training_metrics = F)
@@ -632,7 +797,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                               nfolds = nfolds, solver = solver,
                               link = link)
         
-        var_imp <- h2o.varimp(model)
+        var_imp <- h2o::h2o.varimp(model)
         sel_imp <- var_imp$variable[1:10]
         h2o::h2o.rm(train)
         train <- h2o::as.h2o(cbind('condition'=y,x[,sel_imp]), destination_frame = 'train')
@@ -651,6 +816,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
         stop("Not defined")
       }
       perf <- h2o::h2o.performance(model = model, newdata = train)
+      cm <- perf@metrics$cm$table[1:length(unique(y)),1:length(unique(y))]
       name_val <- sprintf("Sample%s %s", i,  names(train_x_list)[index])
       var_imp <-  h2o::h2o.varimp(model)
       modelz[[name_val]] <- list('model'= model, 'perf' = perf,
@@ -662,163 +828,6 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
   return(list('models' = modelz))
 }
 
-h2o_config <- function(){
-  config <- list()
-  config$threads <- as.numeric(Sys.getenv('nthreads'))
-  config$max_mem <- NULL
-  mem <- Sys.getenv("max_mem")
-  if(mem!= '')
-    config$max_mem <- mem
-  config$log_dir <- Sys.getenv("log_dir")
-  config$log_level <- Sys.getenv("log_level")
-  
-  config$threads <- ifelse(is.na(config$threads), -1, config$threads)
-  
-  config$log_dir <- ifelse(config$log_dir == "", getwd(), config$log_dir)
-  config$log_level <- ifelse(config$log_level == "", "INFO", config$log_level)
-  
-  return(config) 
-}
-
-plot_acc <- function(data, use_h2o, alg = NA){
-  if(use_h2o){
-    shiny::validate(shiny::need(data$models, "No Models Run Yet"))
-    #loop through the object returned by classification to extract accuracy
-    model_data <- data$models
-    df <- rbindlist(lapply(names(model_data), function(x){
-      z <- model_data[[x]]
-      strs <- unlist(strsplit(x,' '))
-      
-      cm <- z$model@model$validation_metrics@metrics$cm$table
-      cm <- cm[1:(dim(cm)[1]-1),1:(dim(cm)[2] -2)]
-      cm <- as.matrix(sapply(cm, as.numeric))
-      acc <- sum(diag(cm))/sum(cm)
-      
-      data.table(sim  = as.numeric(gsub("[[:alpha:]]",'',strs[2])),
-                 sample = as.factor(gsub("[[:alpha:]]",'',strs[1])),
-                 mean_acc = acc)
-    }))
-  }else{
-    shiny::validate(shiny::need(data$samp, "No Trained Models Found"))
-    df <- rbindlist(data$pred_acc)
-    names(df) <- c("sample","mean_acc")
-  }
-  
-  df[, acc := mean(mean_acc), sample]
-  setorder(df, -sample)
-  # following logic is flawed only workds if the data.table is arrange by sample
-  # size in increasing order
-  #######
-  mean_PA <- df$acc
-  sample_size <- df$sample
-  dydx <- -diff(mean_PA)/-diff(as.numeric(as.character(sample_size)))
-  
-  if(any(dydx >= 0.0001)){
-    inter_dydx <- dydx[which(dydx >= 0.0001)]
-    min_dydx <- inter_dydx[which.min(inter_dydx)]
-    optimal_index <- which(dydx == min_dydx)
-    optimal_sample_size_per_group <- sample_size[optimal_index]
-  } else{
-    optimal_sample_size_per_group <- sample_size[1]
-  }
-  
-  y_lim <- c(df[,min(acc, na.rm = T)]-0.1, 1)
-  df[sample == optimal_sample_size_per_group, fill_col := 'red']
-  ######
-
-  p <- ggplot(data = df, aes(x = reorder(sample)))+
-    geom_boxplot(aes(y = mean_acc, group = sample, fill = fill_col), alpha = 0.5)+
-    scale_fill_identity()+
-    # geom_vline(xintercept = optimal_sample_size_per_group, color = 'red', size= 0.75)+
-    geom_point(aes(y = acc))+
-    geom_line(aes(y = acc, group = 1), size = 0.75, color = "blue")+
-    labs(x = "Simulated Sample Size", y = "Predictive Accuracy",
-         title = sprintf("Classifier %s", alg),
-         subtitle = sprintf("Optimum accuracy achieved when sample size is : %s",
-                           optimal_sample_size_per_group))+
-    ylim(y_lim)+
-    theme_MSstats()+
-    theme(plot.subtitle = element_text(face = 'italic', color = 'red'))
-  
-  return(p)
-}
-
-plot_var_imp <- function(data, sample = 'all', alg = NA, use_h2o, prots = 10){
-  browser()
-  if(use_h2o){
-    if(prots == 'all'){
-      prots <- nrow(data$models[[1]]$var_imp)
-    }
-    
-    shiny::validate(shiny::need(data$models, "No Trained Models Found"))
-    data <- data$models
-    samp <- names(data)
-    if(alg == "svmLinear"){
-      samp <- names(data$models)
-    }
-    
-    if(sample != 'all'){
-      req_samp <- unique(unlist(strsplit(samp, ' ')))
-      req_samp <- req_samp[grep("Sample", req_samp)]
-      req_samp <- req_samp[grep(sample, req_samp)]
-      samp <- samp[grep(req_samp, samp)]
-    }
-    
-    df <- rbindlist(lapply(samp, function(x){
-      dt <- as.data.table(data[[x]]$var_imp)
-      setorder(dt, -scaled_importance)
-      dt$name <- x
-      dt
-    }))
-    
-    df[, c('sample_size', 'simulation') := tstrsplit(name, " ", fixed = T)]
-    df <- df[, lapply(.SD, mean), .SDcols = 2:4, by = c("variable", "sample_size")]
-    df[, relative_importance := scaled_importance]
-    
-  }else{
-    if(sample == 'all'){
-      sample <- as.character(data$samp)
-    }else{
-      sample <- gsub("Sample","", sample)
-    }
-    
-    df <- rbindlist(lapply(sample, function(x){
-      d <- data$f_imp[[x]]
-      d[, sample_size := paste("SampleSize",x)]
-      setnames(d, c('protein.rn', 'importance'),
-               c('variable', 'relative_importance'),
-               skip_absent = T)
-      d[!is.na(variable)]
-    }))
-    
-    if(prots == 'all'){
-      prots <- max(df[,.N,sample_size][,unique(N)], na.rm = T)
-    }
-  }
-  
-  dt <- df %>%
-    mutate(variable = reorder(variable, relative_importance)) %>%
-    group_by(sample_size, variable) %>%
-    arrange(desc(relative_importance)) %>%
-    ungroup() %>%
-    mutate(variable = factor(paste(variable, sample_size, sep = '_'),
-                             levels = rev(paste(variable, 
-                                                sample_size, sep ='_'))))%>%
-    as.data.table()
-  
-  g <- lapply(dt[,unique(sample_size)], function(x){
-    ggplot(data = head(dt[sample_size == x], prots),
-           aes(variable, relative_importance))+
-      geom_col()+
-      labs(x = "Protein", y = "Relative Importance", title = x)+
-      scale_x_discrete(breaks = dt$variable,
-                       labels = gsub("_.*",'',as.character(dt$variable)))+
-      theme_MSstats()+
-      coord_flip()
-  })
-  names(g) <- dt[,unique(sample_size)]
-  return(g)
-}
 
 #### WRAPPER FOR CLASSIFICATION ######
 
