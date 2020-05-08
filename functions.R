@@ -135,15 +135,8 @@ plot_acc <- function(data, use_h2o, alg = NA){
     #loop through the object returned by classification to extract accuracy
     model_data <- data$models
     df <- rbindlist(lapply(names(model_data), function(x){
-      z <- model_data[[x]]
+      acc <- model_data[[x]]$acc
       strs <- unlist(strsplit(x," "))
-      #TODO this following chunk can be possible done in ss_classify_h2o
-      cm <- z$model@model$validation_metrics@metrics$cm$table
-      cm <- cm[1:(dim(cm)[1]-1),1:(dim(cm)[2] -2)]
-      cm <- as.matrix(sapply(cm, as.numeric))
-      acc <- sum(diag(cm))/sum(cm)
-      #return a data.table with simulation number, sample size as factor and 
-      #the reported accuracy for that combination
       data.table(sim  = as.numeric(gsub("[[:alpha:]]","",strs[2])),
                  sample = as.factor(gsub("[[:alpha:]]","",strs[1])),
                  mean_acc = acc)
@@ -158,6 +151,9 @@ plot_acc <- function(data, use_h2o, alg = NA){
   ####### Identify the optimal sample size ####
   opt_df <- unique(df[,.(sample, acc)])
   setorder(opt_df, -sample)
+  if(use_h2o)
+    setorder(opt_df, sample)
+  
   opt_df[, sample := as.numeric(as.character(sample))]
   opt_df[, lg := (acc - shift(acc))/(sample - shift(sample))]
   opt_df[, optimal := ifelse(lg >= 0.0001, T, F)]
@@ -756,7 +752,6 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                             seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
                             session = NULL){
-  
   samp <- unlist(strsplit(n_samp,","))
   config <- h2o_config()
   h2o::h2o.init(nthreads = config$threads, max_mem_size = config$max_mem,
@@ -856,11 +851,16 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
       } else{
         stop("Not defined")
       }
-      perf <- h2o::h2o.performance(model = model, newdata = train)
-      cm <- perf@metrics$cm$table[1:length(unique(y)),1:length(unique(y))]
+      perf <- h2o::h2o.performance(model = model, newdata = valid)
+      cm <- perf@metrics$cm$table[1:length(unique(y)),
+                                  1:length(unique(y))]
+      cm <- as.matrix(sapply(cm, as.numeric))
+      #accuracy of current simulation
+      acc <- sum(diag(cm))/sum(cm)
+      
       name_val <- sprintf("Sample%s %s", i,  names(train_x_list)[index])
       var_imp <-  h2o::h2o.varimp(model)
-      modelz[[name_val]] <- list("model"= model, "perf" = perf,
+      modelz[[name_val]] <- list("model"= model, "acc" = acc,
                                  "var_imp" = var_imp)
     }
   }
