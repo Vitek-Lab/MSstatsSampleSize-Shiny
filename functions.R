@@ -69,6 +69,8 @@ status <- function(detail, value, session = NULL){
 #' @return A named list containing required h2o configuration details, if none 
 #' provided, defaults are used
 h2o_config <- function(){
+  options("h2o.use.data.table" = T)
+  options('h2o.fwrite' = T)
   config <- list()
   config$threads <- as.numeric(Sys.getenv("nthreads"))
   config$max_mem <- NULL
@@ -317,6 +319,7 @@ qc_boxplot <- function(data = NULL){
   box_plot
 }
 
+
 #### Data Exploration ####
 
 #' @title Formats data to required longer format
@@ -482,6 +485,7 @@ make_pca_plots <- function(simulations, which = "all", address = NA,
   }
 }
 
+
 #' @title Plot PCA outputs
 #' @description A utility wrapper for plotting pca data as returned by the `do_prcomp()`
 #' @param data A data frame containing the Principal components to be plotted
@@ -594,9 +598,53 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
 }
 
 #### Classification #####
+#' @title Run classification Algorithms
+#' @description A wrapper function to either caret of h2o based classification 
+#' algorithm, this function removes the overhead of having to do decision making
+#' in a reactive environment of the shiny app and easier to debug
+#' @param sim A list object containing the simulated data as returned by the
+#' `simulate_grid()` function
+#' @param inputs A shiny inputs objects containing user inputs, can also be a list
+#' of named inputs 
+#' @param use_h2o A logical value determining if to use h2o or not
+#' @param seed A numeric value setting seed for reproducible experiments
+#' @param session A session object for shiny, making interactive status updates
+#' @return A classification object containing training models for each s
+run_classification <- function(sim, inputs, use_h2o, seed, session = session){
+  if(seed != -1)
+    set.seed(seed)
+  
+  if(use_h2o){
+    classification <- ss_classify_h2o(n_samp = inputs$n_samp_grp, sim_data = sim,
+                                      classifier = inputs$classifier,
+                                      stopping_metric = inputs$stop_metric,
+                                      nfolds = inputs$nfolds,
+                                      fold_assignment = inputs$f_assignment, iters = inputs$iters,
+                                      family = inputs$family, solver = inputs$solver,
+                                      link = inputs$link, min_sdev = inputs$min_sdev,
+                                      laplace = inputs$laplace, eps = inputs$eps_sdev,
+                                      seed = -1, session = session)
+  }else{
+    
+    classification <- ss_classify_caret(n_samp = inputs$n_samp_grp,
+                                        sim_data = sim,
+                                        classifier = inputs$classifier,
+                                        session = session)
+  }
+  return(classification)
+}
 
-sample_size_classification <- function(n_samp, sim_data, classifier, k = 10,
-                                       family = "binomial", session = NULL){
+
+#' @title 
+#' @description 
+#' @param n_samp
+#' @param sim_data
+#' @param classifier
+#' @param k
+#' @param family
+#' @param session
+ss_classify_caret <- function(n_samp, sim_data, classifier, k = 10,
+                              family = "binomial", session = NULL){
   samp <- unlist(strsplit(n_samp,","))
   pred_acc <- list()
   f_imp <- list()
@@ -746,8 +794,27 @@ classify <- function(df, val, alg, family, k){
 
 
 
-####### H2o Application for classification #######
-
+#' @title Classify using h2o classification algorithms
+#' @description This function enables the shiny application to apply various 
+#' algorithms as defined by the user
+#' @param n_samp A comma separated chracter vector with number of sample sizes 
+#' @param sim_data A list object containing simulated data
+#' @param classifier Classifier to use as selected by the user can use one of the
+#' following `Logistic Regression`, `Random Forest`, `Support Vector Machine`,
+#' `Naive Bayes`, `Neural Network`
+#' @param stopping_metric 
+#' @param seed
+#' @param nfolds
+#' @param fold_assignment
+#' @param iters
+#' @param alpha
+#' @param family
+#' @param solver
+#' @param link
+#' @param min_sdev
+#' @param laplace
+#' @param eps
+#' @param session 
 ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUTO",
                             seed = -1, nfolds = 0, fold_assignment = "AUTO", iters = 200,
                             alpha = 0, family, solver, link, min_sdev, laplace, eps,
@@ -758,8 +825,8 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                 log_dir = config$log_dir, log_level = config$log_level)
   max_val <- 0
   iter <- 0
-  
   modelz <- list()
+  
   for(i in samp){
     
     valid_x <- sim_data[[i]]$valid_X
@@ -787,7 +854,8 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
         model <- h2o::h2o.randomForest(y = 1, training_frame = train,
                                        stopping_metric = stopping_metric, seed = seed, 
                                        balance_classes = FALSE, nfolds = nfolds,
-                                       fold_assignment = fold_assignment)
+                                       fold_assignment = fold_assignment,
+                                       build_tree_one_node = T)
         var_imp <- h2o::h2o.varimp(model)
         sel_imp <- var_imp$variable[1:10]
         h2o::h2o.rm(train)
@@ -796,7 +864,8 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
                                        validation_frame = valid,
                                        stopping_metric = stopping_metric, seed = seed, 
                                        balance_classes = FALSE, nfolds = nfolds,
-                                       fold_assignment = fold_assignment)
+                                       fold_assignment = fold_assignment,
+                                       build_tree_one_node = T)
         
       } else if (classifier == "nnet"){
         l1 = 0
@@ -870,31 +939,7 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
 }
 
 
-#### WRAPPER FOR CLASSIFICATION ######
 
-run_classification <- function(sim, inputs, use_h2o, seed, session = session){
-  if(seed != -1)
-    set.seed(seed)
-  
-  if(use_h2o){
-    classification <- ss_classify_h2o(n_samp = inputs$n_samp_grp, sim_data = sim,
-                                      classifier = inputs$classifier,
-                                      stopping_metric = inputs$stop_metric,
-                                      nfolds = inputs$nfolds,
-                                      fold_assignment = inputs$f_assignment, iters = inputs$iters,
-                                      family = inputs$family, solver = inputs$solver,
-                                      link = inputs$link, min_sdev = inputs$min_sdev,
-                                      laplace = inputs$laplace, eps = inputs$eps_sdev,
-                                      seed = -1, session = session)
-  }else{
-    
-    classification <- sample_size_classification(n_samp = inputs$n_samp_grp,
-                                                 sim_data = sim,
-                                                 classifier = inputs$classifier,
-                                                 session = session)
-  }
-  return(classification)
-}
 
 
 
