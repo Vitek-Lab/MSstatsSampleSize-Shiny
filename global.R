@@ -21,8 +21,8 @@ EXTENSTIONS <- c("text/csv",
                  "text/comma-separated-values,text/plain",
                  ".csv", "text/tab-separated-values", ".tsv")
 
-MODELS <- c('','rf','nnet','svmLinear','logreg','naive_bayes')
-names(MODELS) <- c('',"Random Forest", "Neural Network",
+MODELS <- c('rf','nnet','svmLinear','logreg','naive_bayes')
+names(MODELS) <- c("Random Forest", "Neural Network",
                    "Support Vector Machines with Linear Kernel",
                    "Logistic Regression", "Naive Bayes")
 
@@ -44,3 +44,4 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
 
 B_GROUP <- ""
 TUNING <- c("Use h2o Package", "Parameter Tuning")
+CURRMODEL <- ""
