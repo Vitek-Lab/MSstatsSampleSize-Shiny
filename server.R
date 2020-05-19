@@ -421,6 +421,7 @@ function(session, input, output) {
     
     },message = "Progress:", value = 0.2, detail = "Training"
     )
+    CURRMODEL <<- input$classifier
     shinyjs::enable("download_models")
     shinyjs::enable("download_prot_imp")
     shinyjs::enable("back_varimp")
@@ -447,7 +448,8 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"))
+    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"),
+                    shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
     if(rv$use_h2o)
       shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
@@ -456,9 +458,11 @@ function(session, input, output) {
   })
   
   output$importance_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"))
+    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"),
+                    shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
     if(rv$use_h2o)
-      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
+      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"),
+                      shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
     
     show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
                              alg = input$classifier,use_h2o = rv$use_h2o),
