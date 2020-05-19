@@ -158,7 +158,7 @@ plot_acc <- function(data, use_h2o, alg = NA){
   
   opt_df[, sample := as.numeric(as.character(sample))]
   opt_df[, lg := (acc - shift(acc))/(sample - shift(sample))]
-  opt_df[, optimal := ifelse(lg >= 0.0001, T, F)]
+  opt_df[, optimal := ifelse(lg >= 0.001, T, F)]
   if(nrow(opt_df[, .N, optimal][optimal == T]) != 0){
     optimal_sample_size <- opt_df[optimal == T][which.min(lg), sample]
   } else {
@@ -667,6 +667,9 @@ ss_classify_caret <- function(n_samp, sim_data, classifier, k = 10,
       family <- "multinomial"
     }
     
+    # use for loop instead of lapply or a parallel implementation of lapply
+    # to provide the user with visual aid of the progress bar
+    # TODO figure out a vectorized approach with status outputs to the UI 
     for(j in seq_along(list_x)){
       if(max_val == 0){
         max_val <- length(list_x) * length(samp)
@@ -694,6 +697,13 @@ ss_classify_caret <- function(n_samp, sim_data, classifier, k = 10,
     }
     
     imp <- do.call("rbind", imp)
+    # Get the top k most frequent proteins across all simulation runs
+    imp_prots <- imp[,.N,rn]
+    setorder(imp_prots,-N)
+    imp_prots <- imp_prots[1:k, rn]
+    imp <- imp[rn %in% imp_prots]
+    
+    #spreat out the protein importances and scale them 
     imp <- dcast(imp, rn~Simulation, value.var = "Overall")
     imp <- cbind("protein" = imp[,1],
                  "importance" = rowSums(imp[,-1], na.rm = T))
@@ -702,6 +712,9 @@ ss_classify_caret <- function(n_samp, sim_data, classifier, k = 10,
     models[[as.character(samp[i])]] <- model
     f_imp[[as.character(samp[i])]] <- imp
   }
+  
+  rm(list_x, list_y, valid, df, max_val, acc)
+  
   return(list("res" = models, "samp" = as.numeric(samp), "pred_acc" = pred_acc,
               "f_imp" = f_imp))
 }
@@ -772,6 +785,8 @@ classify <- function(df, val, alg, family, k){
     setorder(i_ff, -Overall)
     sel_imp <- i_ff[1:k][!is.na(rn), rn]
     
+    # TODO figure out why make.names add certains special characters to the 
+    # proteins check consistency of protein names
     if(!all(sel_imp %in% names(df))){
       sel_imp <- gsub("`|\\\\","",sel_imp)
     }
