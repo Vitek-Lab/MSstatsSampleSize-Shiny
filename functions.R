@@ -94,7 +94,8 @@ h2o_config <- function(){
 #' @param x.axis.size A numeric value for size for the elements on the x-axis
 #' @param y.axis.size A numeric value for size for the elements on the y-axis
 #' @param legend.size A numeric value fot the size of the legend
-theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10, legend.size = 7){
+theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10, 
+                          legend.size = 11, margin = 0.5, leg.dir="horizontal"){
   
   th <- ggplot2::theme(panel.background = element_rect(fill = "white", 
                                                        colour = "black"),
@@ -116,9 +117,12 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10, legend.size = 7){
                                             vjust = 1.5),
                        legend.key = element_rect(fill = "white", 
                                                  colour = "white"),
-                       legend.position = "right", 
+                       legend.direction = leg.dir,
                        legend.text = element_text(size = legend.size), 
-                       legend.title = element_blank())
+                       legend.title = element_blank(),
+                       plot.margin = unit(rep(margin,4), "cm"),
+                       legend.position=c(1, 1.05),
+                       legend.justification="right")
   return(th)
 }
 
@@ -174,9 +178,9 @@ plot_acc <- function(data, use_h2o, alg = NA){
     scale_fill_identity()+
     geom_point(aes(y = acc))+
     geom_line(aes(y = acc, group = 1), size = 0.75, color = "blue")+
-    labs(x = "Simulated Sample Size", y = "Predictive Accuracy",
+    labs(x = "Simulated Sample Size Per Group", y = "Predictive Accuracy",
          title = sprintf("Classifier %s", alg),
-         subtitle = sprintf("Optimum accuracy achieved when sample size is : %s",
+         subtitle = sprintf("Optimum accuracy achieved when sample size per group is : %s",
                             optimal_sample_size))+
     ylim(y_lim)+
     theme_MSstats()+
@@ -449,13 +453,14 @@ format_summary_table <- function(data = NULL){
 #' @param height Page height parameter for the pdf
 #' @session A session object for the shiny implementation
 make_pca_plots <- function(simulations, which = "all", address = NA,
-                           width = 3, height = 3, session = NULL){
+                           width = 3, height = 3, dot_size = 3, session = NULL){
   
   pc_plot <- list()
   if(which %in% c("all", "allonly")){
     iter <- length(simulations$simulation_train_Xs)+1
     pr_comp <- do_prcomp(sim = simulations)
-    pc_plot[[iter]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var)
+    pc_plot[[iter]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var,
+                                dot_size = dot_size)
   }
   
   if(grep("simulation", which) | which == "all"){
@@ -465,7 +470,8 @@ make_pca_plots <- function(simulations, which = "all", address = NA,
     for(i in iters){
       pr_comp <- do_prcomp(sim = simulations$simulation_train_Xs[[i]],
                            sim_y = simulations$simulation_train_Ys[[i]])
-      pc_plot[[i]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var)
+      pc_plot[[i]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var,
+                               dot_size = dot_size)
     }
   }else{
     stop(Sys.time()," Improper which arguement provided")
@@ -944,12 +950,18 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
       
       name_val <- sprintf("Sample%s %s", i,  names(train_x_list)[index])
       var_imp <-  h2o::h2o.varimp(model)
+      
+      rm(train, perf, cm)
+      
       modelz[[name_val]] <- list("model"= model, "acc" = acc,
                                  "var_imp" = var_imp)
     }
   }
-  h2o::h2o.shutdown(prompt = F)
+  rm(valid, valid_x, valid_y, train_x_list, train_y_list, model)
   gc()
+  h2o:::.h2o.garbageCollect()
+  h2o::h2o.shutdown(prompt = F)
+  
   return(list("models" = modelz))
 }
 

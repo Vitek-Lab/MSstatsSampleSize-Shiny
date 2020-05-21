@@ -22,7 +22,7 @@ without experience with R/programming to utilize the functions from MSstatsSampl
 
 Begin by importing your dataset from the *Import Data* submenu in the sidebar. 
 Accepted data format includes.  
-Protein abundance/summarised spectral counts and a corresponding sample 
-annotation file in a delimiter-separated format.  
+* Protein abundance/summarised spectral counts
+* Corresponding sample annotation file in a delimiter-separated format.  
   
 Example datasets from <a href = "https://bioconductor.org/packages/release/data/experiment/html/MSstatsBioData.html" target = "_blank">`MSstatsBioData`</a> are also available from within the app.

@@ -45,3 +45,10 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
 B_GROUP <- ""
 TUNING <- c("Use h2o Package", "Parameter Tuning")
 CURRMODEL <- ""
+
+CSS_BUTTON <- "margin-top: 25px;
+              display: inline-block;
+              color: #fff;
+              background-color: orange;
+              border-color: black;
+              font-size : 20px;"
