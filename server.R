@@ -16,6 +16,9 @@ function(session, input, output) {
   rv$seed <- -1
   rv$use_h2o <- F
   
+  observeEvent(input$start_process,{
+    updateTabsetPanel(session = session, inputId = "tabs", "import_data")
+  })
   ## Set maximum size of uploaded files to 300mb
   options(shiny.maxRequestSize = 300*1024^2)
   #### Toggle control for sidebar ####
@@ -76,6 +79,10 @@ function(session, input, output) {
   # Mean and Standard Deviation Plot
   output$mean_sd_plot <- renderPlot({
     meanSDplot(data = data()$est_var)
+  })
+  
+  observeEvent(input$nav_to_sim,{
+    updateTabItems(session = session, inputId = "tabs", "explore_simulated")
   })
   
   observeEvent(input$set_seed,{
@@ -209,6 +216,7 @@ function(session, input, output) {
       },
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
     shinyjs::enable("run_model")
+    shinyjs::enable("nav_to_exp")
     return(data)
   })
   
@@ -249,13 +257,29 @@ function(session, input, output) {
     filename = sprintf("PCA_plots_%s.pdf", format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       withProgress({
+        p <- list()
+        library(gridExtra)
         pdf(file = file)
         for(i in seq_along(sim_choices)){
           status(sprintf("Plotting %s plot", i), value = i/length(sim_choices), session = session)
           vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
           sim <- sprintf("simulation%s",vals[1])
-          print(make_pca_plots(simulations()[[vals[2]]], which = sim)+
-                  labs(title = sim_choices[i]))
+          p <- append(p, list(make_pca_plots(simulations()[[vals[2]]], 
+                                             which = sim, dot_size=1)+
+                                labs(title = sim_choices[i])+
+                                theme_MSstats(x.axis.size = 4, y.axis.size = 4,
+                                              margin = 0.5, legend.size = 5,
+                                              leg.dir = "vertical")+
+                                theme(legend.background = element_rect(fill="white",
+                                                                       linetype = "solid",
+                                                                       colour="black"))
+                              )
+                      )
+          
+          if(length(p)== 4 || i == max(seq_along(sim_choices))){
+            do.call("grid.arrange", c(p, ncol=2, nrow=2))
+            p <- list()
+          }
         }
         dev.off()
       }
@@ -276,7 +300,10 @@ function(session, input, output) {
       shiny::showNotification("No Simulations Found", duration = NULL)
     }
   )
- 
+
+  observeEvent(input$nav_to_exp,{
+    updateTabItems(session = session, inputId = "tabs", "plan_experiment")
+  })
   
   #### Toggle switches and control for selectInputs in Analyze Tab ####
   observeEvent(input$n_samp_grp,{
@@ -448,8 +475,11 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"),
-                    shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
+    shiny::validate(shiny::need(rv$classification,
+                                "No Trained Models Found, Click 'Run Model'"),
+                    shiny::need(CURRMODEL == input$classifier,
+                                sprintf("No Trained Models Found for %s, Click 'Run Model'", 
+                                        input$classifier)))
     if(rv$use_h2o)
       shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
@@ -472,20 +502,25 @@ function(session, input, output) {
   
   #### Download buttons for models plots/and data #####
   output$download_plots <- downloadHandler(
-    filename = sprintf("plots_%s.pdf",
+    filename = sprintf("classification_plot_%s_%s.pdf", input$classifier,
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
-      plots <- plot_var_imp(data = rv$classification, sample = 'all',
-                            use_h2o = rv$use_h2o, alg = input$classifier,
-                            prots = 'all')
+      plots <-list(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
+                            alg = names(MODELS)[which(MODELS %in% input$classifier)])
+                   + theme_MSstats(x.axis.size = 4, y.axis.size = 4,
+                                   margin = 0.5))
+      plots <- append(plots, plot_var_imp(data = rv$classification, sample = 'all',
+                                          use_h2o = rv$use_h2o, alg = input$classifier,
+                                          prots = 'all'))
+      
+      seqs <- seq(4,length(plots), 4)
+      library(gridExtra)
       withProgress({
-        pdf(file = file, height = 9, width = 6.5)
-        print(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
-                       alg = names(MODELS)[which(MODELS %in% input$classifier)]))
-        for(i in seq_along(plots)){
+        pdf(file = file)
+        for(i in seqs){
           status(sprintf("Plotting %s plot", i), value = i/length(plots),
                  session = session)
-          print(plots[[i]])
+          do.call("grid.arrange", c(plots[(i-3):i], ncol=2, nrow=2))
         }
         dev.off()
       }, session = session)

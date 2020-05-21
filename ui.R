@@ -37,8 +37,8 @@ dashboardPage(
       menuItem("2: Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
       #### Analyze Simulation Tab ####
-      menuItem("3: Analyze Simulated Datasets", 
-               tabName = "analyse_simulated", icon = icon("vial"))
+      menuItem("3: Plan Experiment", 
+               tabName = "plan_experiment", icon = icon("vial"))
     )
   ),
   ##### Body ####
@@ -48,7 +48,12 @@ dashboardPage(
       #### Home Tab ####
       tabItem(
         tabName = "home",
-        includeMarkdown("www/Welcome.md")
+        includeMarkdown("www/Welcome.md"),
+        actionButton(inputId = "start_process",
+                     label = "Start",
+                     icon = icon("arrow-right"),
+                     style = CSS_BUTTON,            
+                     width = '200px')
       ),
       #### Import Data Tab ####
       tabItem(
@@ -83,7 +88,17 @@ dashboardPage(
                    )
                    ),
                    tabPanel("Explore Data", fluidPage(
-                     h3(textOutput("dataset_name")),
+                     fluidRow(
+                       column(9,
+                              h3(textOutput("dataset_name"), 
+                                 style="display: inline-block;")),
+                       column(3,
+                              actionButton(inputId = "nav_to_sim",
+                                    label = "Next Step",
+                                    icon = icon("arrow-right"),
+                                    style = CSS_BUTTON,
+                                    width = '200px'))
+                       ),
                      br(),
                      #### Summary Tables ####
                      fluidRow(
@@ -123,21 +138,30 @@ dashboardPage(
       #### Data Simulation Tab #####
       tabItem(
         tabName = "explore_simulated",
-        h1("Simulate datasets"),
+        fluidRow(
+          column(9, h1("Simulate datasets",
+                       style="display: inline-block;")),
+          column(3,
+                 shinyjs::disabled(actionButton(inputId = "nav_to_exp",
+                              label = "Next Step",
+                              icon = icon("arrow-right"),
+                              style = CSS_BUTTON,
+                              width = '200px')))
+          ),
         ##### Checkboxes for file Input and set seed options ####
         fluidRow(
           # csv file uploads for parameters --- disabled not completely scoped out
-          column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
-                                                    label = "Upload Simulation Parameters from csv"))),
+          # column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
+          #                                           label = "Upload Simulation Parameters from csv"))),
           # set seed disabled not completely scoped out
           column(3, checkboxInput(input = "set_seed",
                                   label = "Set Seed value 1212"))
         ),
         #### File Input to upload a simulation parameter csv ####
-        fileInput(input = "param_input", label = "Upload Parameters in specified format",
-                  multiple = F, accept = c("text/csv",
-                                           "text/comma-separated-values,text/plain",
-                                           ".csv", "text/tab-separated-values", ".tsv")),
+        # fileInput(input = "param_input", label = "Upload Parameters in specified format",
+        #           multiple = F, accept = c("text/csv",
+        #                                    "text/comma-separated-values,text/plain",
+        #                                    ".csv", "text/tab-separated-values", ".tsv")),
         fluidRow(
           #### Box to input simulation parameters from the dashboard ######
           box(id = "param_box", title = "Parameters For Simulating DataSets",
@@ -225,8 +249,9 @@ dashboardPage(
       ),
       #### Analyse Simulation Tab ####
       tabItem(
-        tabName = "analyse_simulated",
-        h1("Analyze Simulated Datasets"),
+        tabName = "plan_experiment",
+        h1("Plan Experiment"),
+        h3("Calculate Sample Size For Classification"),
         #### Model Setup Box ####
         fluidRow(
           box(status = 'primary', solidHeader = T, title = "Model Setup", 
