@@ -274,24 +274,27 @@ dashboardPage(
                                              content = "checkbox_inputs",
                                              id = "checkbox_inputs_help")
                 ),
-                column(width = 1,
+                column(offset = 1, width = 1,
                        actionButton(inputId = "run_model", label = "Run Model",
                                     width = "100px", style = "margin-top:25px;"),
                 ),
-                column(width = 2,
-                       downloadButton(outputId = "download_models",
-                                      label = "Download Models",
-                                      style = "margin-top:25px;",
-                                      width = "250px")
-                ),
-                column(width = 1,
-                       downloadButton(outputId = "download_plots",
+                column(offset= 1, width = 1,
+                       shinyjs::disabled(downloadButton(outputId = "download_plots",
                                       label = "Download Plots" ,
                                       style = "margin-top:25px;",
-                                      width = "200px")
-                )
+                                      width = "250px"))
+                ),
+                column(offset=1, width = 1,
+                       shinyjs::disabled(downloadButton(outputId ="generate_report",
+                                                        label ="Generate Report",
+                                                        style ="margin-top:25px;
+                                              margin-top: 25px;
+                                              display: inline-block;
+                                              color: #fff;
+                                              background-color: orange;
+                                              border-color: black;")))
               ),
-              column(width = 3, 
+              column(width = 1, 
                      selectInput(inputId = "stop_metric", 
                                  label = "Stopping Metric",
                                  choices = STOPPING_METRIC) %>%

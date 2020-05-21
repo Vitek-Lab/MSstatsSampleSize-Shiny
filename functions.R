@@ -134,7 +134,7 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10,
 #' @param use_h2o A logical inputs which detemines if h2o was used for classification
 #' @param alg A character vector detemining the name of the classifier used
 #' @return A ggplot2 object
-plot_acc <- function(data, use_h2o, alg = NA){
+plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
   if(use_h2o){
     #check if required data exists
     shiny::validate(shiny::need(data$models, "No Models Run Yet"))
@@ -168,9 +168,15 @@ plot_acc <- function(data, use_h2o, alg = NA){
   } else {
     optimal_sample_size <- opt_df[which.min(sample), sample]
   }
-  
+  browser()
   y_lim <- c(df[,min(acc, na.rm = T)]-0.1, 1)
   df[sample == optimal_sample_size, fill_col := "red"]
+  
+  if(!is.null(session)){
+  OPTIMAL_SIZE <- paste0("Sample",optimal_sample_size) #uses global variable
+  updateSelectInput(session = session, inputId = "s_size", label = "Sample Size",
+                    choices = samp_size, selected = OPTIMAL_SIZE)
+  }
   ######
   #Plot the accuracy plot
   p <- ggplot(data = df, aes(x = reorder(sample)))+

@@ -449,10 +449,9 @@ function(session, input, output) {
     },message = "Progress:", value = 0.2, detail = "Training"
     )
     CURRMODEL <<- input$classifier
-    shinyjs::enable("download_models")
-    shinyjs::enable("download_prot_imp")
-    shinyjs::enable("back_varimp")
-    shinyjs::enable("fwd_varimp")
+    enable_btns <- c("download_plots", "back_varimp", "fwd_varimp", 
+                     "generate_report")
+    lapply(enable_btns, shinyjs::enable)
   })
   
   
@@ -483,7 +482,8 @@ function(session, input, output) {
     if(rv$use_h2o)
       shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
-                         alg = names(MODELS)[which(MODELS %in% input$classifier)]),
+                         alg = names(MODELS)[which(MODELS %in% input$classifier)],
+                         session = session),
                 session = session)
   })
   
