@@ -528,16 +528,19 @@ function(session, input, output) {
   )
   
   
-  output$download_models <- downloadHandler(
-    filename =  sprintf("Models_%s_%s.rds", input$classifier,
+  output$generate_report <- downloadHandler(
+    filename =  sprintf("Report_%s_%s.pdf", input$classifier,
                         format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
-      saveRDS(rv$classification, file = file)
+      tempReport <- file.path(tempdir(), "Report.rmd")
+      file.copy("Report.rmd", tempReport, overwrite = T)
+      
+      params <- list(data = rv$classification, use_h2o= rv$use_h2o,
+                     alg = names(MODELS)[which(MODELS %in% input$classifier)],
+                     sample = input$s_size)
+      
+      rmarkdown::render(tempReport, output_file = file, params = params,
+                        envir = new.env(parent = globalenv()))
     }
   )
-  
-  observeEvent(input$debug,{
-    rdsList <- list(cl = rv$classification)
-    saveRDS(rdsList, 'test.rds')
-  })
 }

@@ -168,7 +168,7 @@ plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
   } else {
     optimal_sample_size <- opt_df[which.min(sample), sample]
   }
-  browser()
+  
   y_lim <- c(df[,min(acc, na.rm = T)]-0.1, 1)
   df[sample == optimal_sample_size, fill_col := "red"]
   
