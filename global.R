@@ -52,3 +52,12 @@ CSS_BUTTON <- "margin-top: 25px;
               background-color: orange;
               border-color: black;
               font-size : 20px;"
+
+CSS_BUTTON_REG <- "background-color: orange;
+                  border-color: black;
+                  color: #fff;"
+
+CSS_BUTTON_RUN <- "background-color: orange;
+                  border-color: black;
+                  color: #fff;
+                  margin-top:25px;"

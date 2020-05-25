@@ -20,8 +20,8 @@ dashboardPage(
   ),
   ##### Header #####
   header =  dashboardHeader(
-    title = "MSstats - Sample Size Calculation",
-    titleWidth = 300
+    title = "MSstats- Sample Size Estimator",
+    titleWidth = 350
   ),
   #### SideBar ####
   sidebar =  dashboardSidebar(
@@ -32,12 +32,12 @@ dashboardPage(
       ##### Home Tab ####
       menuItem("Home", tabName = "home", icon = icon("home")),
       #### Data Import Tab ####
-      menuItem("1: Import Data", tabName = "import_data", icon = icon("file-import")),
+      menuItem("1: Import data", tabName = "import_data", icon = icon("file-import")),
       #### Data Simulation Tab ####
       menuItem("2: Simulate datasets", 
                tabName = "explore_simulated", icon = icon("project-diagram")),
       #### Analyze Simulation Tab ####
-      menuItem("3: Plan Experiment", 
+      menuItem("3: Plan experiment", 
                tabName = "plan_experiment", icon = icon("vial"))
     )
   ),
@@ -66,7 +66,8 @@ dashboardPage(
                          fluidRow(
                            column(width = 4, 
                                   selectInput("data_format", "Select Data Type",
-                                              choice = FORMATS_LIST)),
+                                              choice = FORMATS_LIST,
+                                              selected = FORMATS_LIST[2])),
                            column(width = 4, 
                                   fileInput("standard_count", "Select Protein Abundance File",
                                             multiple = FALSE,
@@ -79,12 +80,13 @@ dashboardPage(
                          fluidRow(
                            column(width = 2,
                                   actionButton("import_data", "Import dataset", 
-                                               icon = icon("file-import")))
+                                               icon = icon("file-import"),
+                                               style = CSS_BUTTON_REG))
                          )
                      ),
                      box(title = "Example Data", width = 12, solidHeader = T,
                          status = 'primary',
-                         includeHTML("www/test.Rmd")) 
+                         includeHTML("www/example.Rmd")) 
                    )
                    ),
                    tabPanel("Explore Data", fluidPage(
@@ -218,7 +220,8 @@ dashboardPage(
               # Simulate the dataset provided inputs, gets enabled dynamically
               shinyjs::disabled(
                 actionButton(inputId = "simulate", label = "Simulate Data",
-                             icon =  icon("project-diagram")))
+                             icon =  icon("project-diagram"),
+                             style = CSS_BUTTON_REG))
           ),
           #### Simulation details section #####
           box(title = "Simulated Datasets", solidHeader = T, status = "primary",
@@ -276,7 +279,7 @@ dashboardPage(
                 ),
                 column(offset = 1, width = 1,
                        actionButton(inputId = "run_model", label = "Run Model",
-                                    width = "100px", style = "margin-top:25px;"),
+                                    width = "100px", style = CSS_BUTTON_RUN),
                 ),
                 column(offset= 1, width = 1,
                        shinyjs::disabled(downloadButton(outputId = "download_plots",
@@ -294,7 +297,7 @@ dashboardPage(
                                               background-color: orange;
                                               border-color: black;")))
               ),
-              column(width = 1, 
+              column(width = 3, 
                      selectInput(inputId = "stop_metric", 
                                  label = "Stopping Metric",
                                  choices = STOPPING_METRIC) %>%

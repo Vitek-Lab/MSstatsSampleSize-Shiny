@@ -5,7 +5,7 @@
     Biological replicates or samples, cells are protein  abundances. The following
     image is an example, example data file can be found <a href = "https://github.com/Vitek-Lab/MSstatsSampleSize-Shiny/blob/master/OV_SRM_train.csv " target="_blank"><b>here</b></a>
     </p>
-<img src = ab.PNG width = "550" height = "350">  
+<img src = ab.PNG width = "100%" height = "350">  
 
 </div>
 
@@ -16,6 +16,6 @@
     should be the same as the column names of Preliminary data. The following
     image is an example, example data file can be found <a href = "https://github.com/Vitek-Lab/MSstatsSampleSize-Shiny/blob/master/OV_SRM_train_annotation.csv" target="_blank"><b>here</b></a>
     </p>
-<img src = an.PNG width = "200" height = "350">
+<img src = an.PNG  height = "350">
 </div>
 </div>

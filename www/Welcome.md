@@ -1,8 +1,8 @@
-# Welcome to `MSstats - Sample Size Calculation`
+# Welcome to `MSstats - Sample Size Estimator`
 
 
 ## Introduction
-`MSstats - Sample Size Calculation` is a web-based graphical user interface that provides a 
+`MSstats - Sample Size Estimator` is a web-based graphical user interface that provides a 
 user-friendly way to visualize and report the results from 
 <a href = "https://bioconductor.org/packages/release/bioc/html/MSstatsSampleSize.html" target = "_blank">`MSstatsSampleSize`</a> package
 
@@ -14,7 +14,7 @@ to plan future experiments with similar methodologies. The software therefore
 significantly contributes to the design of biological and clinical studies that 
 involve replicates.
 
-`MSstats - Sample Size Calculation` was created using <a href = "https://shiny.rstudio.com/" target = "_blank"> `R-Shiny` </a>, a Web Application Framework for R. It enables researchers
+`MSstats - Sample Size Estimator` was created using <a href = "https://shiny.rstudio.com/" target = "_blank"> `R-Shiny` </a>, a Web Application Framework for R. It enables researchers
 without experience with R/programming to utilize the functions from MSstatsSampleSize.
 
 

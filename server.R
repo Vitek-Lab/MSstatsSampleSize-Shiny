@@ -268,11 +268,7 @@ function(session, input, output) {
                                              which = sim, dot_size=1)+
                                 labs(title = sim_choices[i])+
                                 theme_MSstats(x.axis.size = 4, y.axis.size = 4,
-                                              margin = 0.5, legend.size = 5,
-                                              leg.dir = "vertical")+
-                                theme(legend.background = element_rect(fill="white",
-                                                                       linetype = "solid",
-                                                                       colour="black"))
+                                              margin = 0.5, legend.size = 5)
                               )
                       )
           
@@ -390,11 +386,13 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "caret_rf",
                            condition = (TUNING[2] == input$checkbox_inputs &&
                                           TUNING[1] !=  input$checkbox_inputs &&
-                                          input$classifier == 'rf'))
+                                          input$classifier == 'rf' &&
+                                          !is.null(input$checkbox_inputs)))
     shinyjs::toggleElement(id = "caret_rf_help",
                            condition = (TUNING[2] == input$checkbox_inputs &&
                                           TUNING[1] !=  input$checkbox_inputs &&
-                                          input$classifier == 'rf'))
+                                          input$classifier == 'rf' &&
+                                          !is.null(input$checkbox_inputs)))
   }, ignoreNULL = FALSE)
   
   observeEvent(input$classifier, {
@@ -428,6 +426,18 @@ function(session, input, output) {
     shinyjs::toggleElement(id = "min_sdev",
                            condition = (all(TUNING %in% input$checkbox_inputs) &&
                                           input$classifier == "naive_bayes"))
+    
+    shinyjs::toggleElement(id = "caret_rf",
+                           condition = (TUNING[2] == input$checkbox_inputs &&
+                                          TUNING[1] !=  input$checkbox_inputs &&
+                                          input$classifier == 'rf' &&
+                                          !is.null(input$checkbox_inputs)))
+    shinyjs::toggleElement(id = "caret_rf_help",
+                           condition = (TUNING[2] == input$checkbox_inputs &&
+                                          TUNING[1] !=  input$checkbox_inputs &&
+                                          input$classifier == 'rf' &&
+                                          !is.null(input$checkbox_inputs)))
+    
   })
   #### Run Classification #####
   observeEvent(input$run_model,{
@@ -502,7 +512,7 @@ function(session, input, output) {
   
   #### Download buttons for models plots/and data #####
   output$download_plots <- downloadHandler(
-    filename = sprintf("classification_plot_%s_%s.pdf", input$classifier,
+    filename = sprintf("classification_plot_%s.pdf",
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <-list(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
@@ -529,16 +539,22 @@ function(session, input, output) {
   
   
   output$generate_report <- downloadHandler(
-    filename =  sprintf("Report_%s_%s.pdf", input$classifier,
+    filename =  sprintf("Report_%s.pdf", isolate(input$classifier),
                         format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
-      tempReport <- file.path(tempdir(), "Report.rmd")
-      file.copy("Report.rmd", tempReport, overwrite = T)
+      tempReport <- file.path(tempdir(), "Report.Rmd")
+      file.copy("Report.Rmd", tempReport, overwrite = T)
       
       params <- list(data = rv$classification, use_h2o= rv$use_h2o,
                      alg = names(MODELS)[which(MODELS %in% input$classifier)],
-                     sample = input$s_size)
-      
+                     sample = input$s_size,
+                     annot = ifelse(is.null(input$standard_annot$datapath),
+                                    "MSstatsSampleSize Package",
+                                    input$standard_annot$datapath),
+                     count = ifelse(is.null(input$standard_count$datapath),
+                                    "MSstatsSampleSize Package",
+                                    input$standard_count$datapath))
+      browser()
       rmarkdown::render(tempReport, output_file = file, params = params,
                         envir = new.env(parent = globalenv()))
     }
