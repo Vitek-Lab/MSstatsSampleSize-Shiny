@@ -319,7 +319,8 @@ qc_boxplot <- function(data = NULL){
   box_plot <- plotly::plot_ly(data = data[!is.na(Abundance)],
                               y = ~log(Abundance), x = ~BioReplicate, color = ~Condition,
                               type = "box") %>%
-    plotly::layout(xaxis = list(title="Biological Replicate"), 
+    plotly::layout(xaxis = list(title="Biological Replicate",showticklabels = TRUE,
+                                tickangle = -45 ), 
                    yaxis = list(title="Log Protein abundance"),
                    legend = list(orientation = "h", #position and of the legend
                                  xanchor = "center",
@@ -727,8 +728,7 @@ ss_classify_caret <- function(n_samp, sim_data, classifier, k = 10,
   
   rm(list_x, list_y, valid, df, max_val, acc)
   
-  return(list("res" = models, "samp" = as.numeric(samp), "pred_acc" = pred_acc,
-              "f_imp" = f_imp))
+  return(list("samp" = as.numeric(samp), "pred_acc" = pred_acc, "f_imp" = f_imp))
 }
 
 
