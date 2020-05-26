@@ -431,21 +431,30 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
 #' and the number of runs as well
 format_summary_table <- function(data = NULL){
   #create crosstable for the conditions vs bioreplicates
-  biorep <- unique(data[,.(BioReplicate, Condition)])
-  biorep <- xtabs(~Condition, data = biorep)
-  
-  #create crosstable for the conditions vs runs if runs data exists
-  if(any(c("run","Run") %in% names(data))){
-    msruns <- unique(data[,.(Run, Condition)])
-    msruns <- xtabs(~Condition, data = msruns)
-  }else{
-    msruns <- rep(0, length(names(biorep)))
-    names(msruns) <- names(biorep) #make runs data 0 if not found
-  }
-  #format it correctly
-  summary <- rbind(biorep, msruns)
-  rownames(summary) <- c("# of Biological Replicates", "# of MS runs")
-  return(summary[,which(colSums(summary, na.rm = T) > 0)])
+  tryCatch({
+    biorep <- unique(data[,.(BioReplicate, Condition)])
+    biorep <- xtabs(~Condition, data = biorep)
+    
+    #create crosstable for the conditions vs runs if runs data exists
+    if(any(c("run","Run") %in% names(data))){
+      msruns <- unique(data[,.(Run, Condition)])
+      msruns <- xtabs(~Condition, data = msruns)
+    }else{
+      msruns <- rep(0, length(names(biorep)))
+      names(msruns) <- names(biorep) #make runs data 0 if not found
+    }
+    #format it correctly
+    #summary <- rbind(biorep, msruns)
+    summary <-matrix(biorep, nrow = 1)
+    colnames(summary) <- names(biorep)
+    summary <- summary[,which(colSums(summary, na.rm = T) > 0)]
+    sum_table <- matrix(summary, nrow=1)
+    #rownames(summary) <- c("# of Biological Replicates", "# of MS runs")
+    dimnames(sum_table) <- list("# of Biological Replicates", names(summary))
+    return(sum_table)
+  }, error = function(e){
+    return(e)
+  })
 }
 
 
@@ -461,7 +470,6 @@ format_summary_table <- function(data = NULL){
 #' @session A session object for the shiny implementation
 make_pca_plots <- function(simulations, which = "all", address = NA,
                            width = 3, height = 3, dot_size = 3, session = NULL){
-  
   pc_plot <- list()
   if(which %in% c("all", "allonly")){
     iter <- length(simulations$simulation_train_Xs)+1
