@@ -217,6 +217,10 @@ function(session, input, output) {
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
     shinyjs::enable("run_model")
     shinyjs::enable("nav_to_exp")
+    shinyjs::enable(id = "fwd")
+    shinyjs::enable(id = "back")
+    shinyjs::enable(id = "download_pca")
+    shinyjs::enable(id = "run_model")
     return(data)
   })
   
@@ -230,9 +234,6 @@ function(session, input, output) {
       }))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
                       choices = sim_choices)
-    shinyjs::enable(id = "fwd")#, condition = length(sim_choices) > 1)
-    shinyjs::enable(id = "back")#, condition = length(sim_choices) > 1)
-    shinyjs::enable(id = "download_pca")#, condition = length(sim_choices) > 1)
   })
   
   #### Backend for previous and next buttons ####
@@ -553,8 +554,18 @@ function(session, input, output) {
                                     input$standard_annot$datapath),
                      count = ifelse(is.null(input$standard_count$datapath),
                                     "MSstatsSampleSize Package",
-                                    input$standard_count$datapath))
-      browser()
+                                    input$standard_count$datapath),
+                     n_sim = input$n_sim,
+                     fc = input$exp_fc,
+                     sim_by = input$sel_sim_prot,
+                     list_diff_prots = input$b_group,
+                     set_seed = input$set_seed,
+                     seed = '1414',
+                     proportion = input$prot_prop,
+                     number = input$prot_num,
+                     valid = input$sim_val,
+                     valid_sample = input$n_val_samp_grp)
+      
       rmarkdown::render(tempReport, output_file = file, params = params,
                         envir = new.env(parent = globalenv()))
     }

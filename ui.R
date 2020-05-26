@@ -278,8 +278,10 @@ dashboardPage(
                                              id = "checkbox_inputs_help")
                 ),
                 column(offset = 1, width = 1,
-                       actionButton(inputId = "run_model", label = "Run Model",
-                                    width = "100px", style = CSS_BUTTON_RUN),
+                       shinyjs::disabled(actionButton(inputId = "run_model", 
+                                                      label = "Run Model",
+                                                      width = "100px", 
+                                                      style = CSS_BUTTON_RUN)),
                 ),
                 column(offset= 1, width = 1,
                        shinyjs::disabled(downloadButton(outputId = "download_plots",

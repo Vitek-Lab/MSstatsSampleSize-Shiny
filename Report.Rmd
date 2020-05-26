@@ -7,26 +7,103 @@ params:
   use_h2o: NA
   alg: NA
   sample: NA
-  filename: NA
   annot: NA
   count: NA
+  n_sim: NA
+  fc: NA
+  list_diff_prots: NA
+  fc_values: NA
+  proportion: NA
+  number: NA
+  valid: NA
+  valid_sample: NA
+  sim_by: NA
+  set_seed: NA
+  seed: NA
 ---
 
+```{r wrap-hook, include=FALSE, eval=TRUE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
 
-```{r echo=FALSE, warning=FALSE}
-cat("The Annottation file used for simulation :", params$annot)
-cat("The Abundance file used for simulation :", params$count)
+# Result
+
+```{r echo=FALSE, warning=FALSE, fig.width= 8.5, fig.height=8.5}
+p1 <- plot_acc(data = params$data, use_h2o = params$use_h2o, alg = params$alg)
+
+p2 <- plot_var_imp(data = params$data, sample = params$sample,
+                   alg = params$alg, use_h2o = params$use_h2o)[[1]]
+
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+```
+
+\newpage
+# Parameters Used for Simulation
+```{r linewidth = 60, echo=F}
+cat("Input Abundance File path:", params$count)
+cat("Input Annotation File path:", params$annot)
+cat("Number of Simulations:", params$n_sim)
+cat("Expected Fold Change:", !params$fc)
+if(!params$fc){
+  cat("List of Different Proteins:", paste(params$list_diff_prots,
+                                            collapse = ", "))
+  cat("Fold Change values:", params$fc_values)
+}
+if(params$set_seed){
+  cat("Seed Value Selected:", params$seed)
+}
+cat("Simulate Protiens by:", params$sim_by)
+if(params$sim_by  == "Proportion"){
+  cat("Protein Proportion:", params$proportion)  
+}else{
+  cat("Protein Numbers:", params$number)
+}
+cat("Samples per group:", gsub("Sample","",params$sample))
+cat("Simulate Validation Set:", params$valid)
+if(params$valid){
+  cat("Validations samples per group:", params$valid_sample)
+}
+cat("Classifier used to estimate sample size:", params$alg)
+
+```
+
+\newpage
+# Code to re-run experiment
+#### Formatting of the Output may vary from that of the GUI  
+
+```{r eval=FALSE, include=T}
+sim_data <- MSstatsSampleSize::simulateDataset(data,
+                                               annotation,
+                                               num_simulations = 10,
+                                               expected_FC = "data",
+                                               list_diff_proteins = NULL,
+                                               select_simulated_proteins = "proportion",
+                                               protein_proportion = 1,
+                                               protein_number = 1000,
+                                               samples_per_group = 50,
+                                               simulate_validation = FALSE,
+                                               valid_samples_per_group = 50)
 
 
-plot_acc(data = params$data, use_h2o = params$use_h2o, alg = params$alg)
+model <- MSstatsSampleSize::designSampleSizeClassification(simulations = sim_data,
+                                                           classifier = params$alg)
+
 ```
 
 
-```{r echo=FALSE, warning=FALSE}
-plot_var_imp(data = params$data, sample = params$sample,
-             alg = params$alg, use_h2o = params$use_h2o)
-```
-
+\newpage
+# Session Information
 ```{r echo=F}
 sessionInfo()
 ```
