@@ -156,8 +156,11 @@ dashboardPage(
           # column(3, shinyjs::disabled(checkboxInput(inputId = "upload_params",
           #                                           label = "Upload Simulation Parameters from csv"))),
           # set seed disabled not completely scoped out
-          column(3, checkboxInput(input = "set_seed",
-                                  label = "Set Seed value 1212"))
+          column(1, checkboxInput(input = "set_seed",
+                                  label = "Set Seed")),
+          column(1, numericInput(inputId = "seed",
+                                 label="Value", value=10,
+                                 step = 1))
         ),
         #### File Input to upload a simulation parameter csv ####
         # fileInput(input = "param_input", label = "Upload Parameters in specified format",

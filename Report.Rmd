@@ -20,6 +20,8 @@ params:
   sim_by: NA
   set_seed: NA
   seed: NA
+  baseline: NA
+  
 ---
 
 ```{r wrap-hook, include=FALSE, eval=TRUE}
@@ -49,10 +51,14 @@ gridExtra::grid.arrange(p1, p2, ncol = 1)
 ```
 
 \newpage
-# Parameters Used for Simulation
+# Parameters used to simulate selected sample size
 ```{r linewidth = 60, echo=F}
 cat("Input Abundance File path:", params$count)
 cat("Input Annotation File path:", params$annot)
+cat("Set Seed ?", params$set_seed)
+if(params$set_seed){
+  cat("Seed Value:", params$seed)
+}
 cat("Number of Simulations:", params$n_sim)
 cat("Expected Fold Change:", !params$fc)
 if(!params$fc){

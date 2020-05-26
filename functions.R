@@ -205,7 +205,7 @@ plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
 #' @param use_h2o A logical input to extract h2o based data model
 #' @param prots Number of proteins to plots, takes "all" to select all proteins
 #' @return A ggplot2 object
-plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o, prots = 10){
+plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10){
   if(use_h2o){
     #identify number of proteins if complete variable imporatnaces are requested
     if(prots == "all"){
@@ -247,6 +247,7 @@ plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o, prots = 10){
       setnames(d, c("protein.rn", "importance"),
                c("variable", "relative_importance"),
                skip_absent = T)
+      d[, variable := gsub('`', '', variable)]
       d[!is.na(variable)]
     }))
     
@@ -350,23 +351,23 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
     wide <- fread(count$datapath, keepLeadingZeros = T)
     #No column names expected for the protein columns
     setnames(wide, "V1", "Protein")
-    uniq_prots <- unique(wide[, Protein])
-    prots_combinations <- uniq_prots[grep(",|;",uniq_prots)]
-    if(length(prots_combinations) > 0){
-      single_prots <- uniq_prots[-grep(",|;", uniq_prots)]
-      v <- do.call("c", lapply(prots_combinations, function(x){
-        comb <- unlist(strsplit(x,",|;"))
-        val <- any(comb %in% single_prots)
-        if(!val){
-          return(x)
-        }
-      }))
-      single_prots <- c(single_prots,v)
-      message(Sys.time()," Old Proteins ", length(uniq_prots),
-              ", New Proteins ", length(single_prots))
-      
-      wide <- wide[Protein %in% single_prots]
-    }
+    # uniq_prots <- unique(wide[, Protein])
+    # prots_combinations <- uniq_prots[grep(",|;",uniq_prots)]
+    # if(length(prots_combinations) > 0){
+    #   single_prots <- uniq_prots[-grep(",|;", uniq_prots)]
+    #   v <- do.call("c", lapply(prots_combinations, function(x){
+    #     comb <- unlist(strsplit(x,",|;"))
+    #     val <- any(comb %in% single_prots)
+    #     if(!val){
+    #       return(x)
+    #     }
+    #   }))
+    #   single_prots <- c(single_prots,v)
+    #   message(Sys.time()," Old Proteins ", length(uniq_prots),
+    #           ", New Proteins ", length(single_prots))
+    #   
+    #   wide <- wide[Protein %in% single_prots]
+    # }
     name <- count$name
     status(detail = "Importing Annotations file", value = 0.5,
            session = session)
@@ -644,7 +645,7 @@ run_classification <- function(sim, inputs, use_h2o, seed, session = session){
                                       family = inputs$family, solver = inputs$solver,
                                       link = inputs$link, min_sdev = inputs$min_sdev,
                                       laplace = inputs$laplace, eps = inputs$eps_sdev,
-                                      seed = -1, session = session)
+                                      seed = seed, session = session)
   }else{
     
     classification <- ss_classify_caret(n_samp = inputs$n_samp_grp,
@@ -965,13 +966,12 @@ ss_classify_h2o <- function(n_samp, sim_data, classifier, stopping_metric = "AUT
       name_val <- sprintf("Sample%s %s", i,  names(train_x_list)[index])
       var_imp <-  h2o::h2o.varimp(model)
       
-      rm(train, perf, cm)
+      rm(train, perf, cm, model)
       
-      modelz[[name_val]] <- list("model"= model, "acc" = acc,
-                                 "var_imp" = var_imp)
+      modelz[[name_val]] <- list("acc" = acc, "var_imp" = var_imp)
     }
   }
-  rm(valid, valid_x, valid_y, train_x_list, train_y_list, model)
+  rm(valid, valid_x, valid_y, train_x_list, train_y_list)
   gc()
   h2o:::.h2o.garbageCollect()
   h2o::h2o.shutdown(prompt = F)

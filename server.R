@@ -99,6 +99,10 @@ function(session, input, output) {
   })
   #### Toggle control for simulate data tab ####
   # toggle the elements that are needed when default fold change is not selected
+  observeEvent(input$set_seed,{
+    shinyjs::toggleElement(id = "seed")
+  })
+  
   observeEvent(input$exp_fc,{
     shinyjs::toggleElement(id = "diff_prot",
                            condition = input$exp_fc != T)
@@ -197,6 +201,11 @@ function(session, input, output) {
                                orig_group = input$b_group)
         exp_fc <- rbind(baseline, fc_values)
       }
+      
+      if(input$set_seed){
+        rv$seed <- input$seed
+      }
+      
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
@@ -540,8 +549,7 @@ function(session, input, output) {
   
   
   output$generate_report <- downloadHandler(
-    filename =  sprintf("Report_%s.pdf", isolate(input$classifier),
-                        format(Sys.time(), "%Y%m%d%H%M%S")),
+    filename =  sprintf("Report_%s.pdf", format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       tempReport <- file.path(tempdir(), "Report.Rmd")
       file.copy("Report.Rmd", tempReport, overwrite = T)
@@ -558,9 +566,11 @@ function(session, input, output) {
                      n_sim = input$n_sim,
                      fc = input$exp_fc,
                      sim_by = input$sel_sim_prot,
-                     list_diff_prots = input$b_group,
+                     fc_values = input$fc_values,
+                     baseline = input$b_group,
+                     list_diff_prots = input$diff_prot,
                      set_seed = input$set_seed,
-                     seed = '1414',
+                     seed = input$seed,
                      proportion = input$prot_prop,
                      number = input$prot_num,
                      valid = input$sim_val,
