@@ -160,7 +160,8 @@ dashboardPage(
                                   label = "Set Seed")),
           column(1, numericInput(inputId = "seed",
                                  label="Value", value=10,
-                                 step = 1))
+                                 step = 1)),
+          column(1, actionButton(inputId = 'debug', label="debug"))
         ),
         #### File Input to upload a simulation parameter csv ####
         # fileInput(input = "param_input", label = "Upload Parameters in specified format",

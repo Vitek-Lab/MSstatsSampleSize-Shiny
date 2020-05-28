@@ -262,6 +262,10 @@ function(session, input, output) {
     }
   })
   
+  # observeEvent(input$debug,{
+  #   saveRDS(list(sim = simulations(), choices = sim_choices),"debug.rds")
+  # })
+  
   #### Backend for download all plots ####
   output$download_pca <- downloadHandler(
     filename = sprintf("PCA_plots_%s.pdf", format(Sys.time(), "%Y%m%d%H%M%S")),
@@ -275,10 +279,11 @@ function(session, input, output) {
           vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
           sim <- sprintf("simulation%s",vals[1])
           p <- append(p, list(make_pca_plots(simulations()[[vals[2]]], 
-                                             which = sim, dot_size=1)+
-                                labs(title = sim_choices[i])+
-                                theme_MSstats(x.axis.size = 4, y.axis.size = 4,
-                                              margin = 0.5, legend.size = 5)
+                                             which = sim, dot_size=1,
+                                             title = sim_choices[i],
+                                             x.axis.size = 4, y.axis.size = 4,
+                                             margin = 0.2, legend.size = 7,
+                                             download = T)
                               )
                       )
           
@@ -300,7 +305,7 @@ function(session, input, output) {
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
       sim <- sprintf("simulation%s",vals[1])
       show_faults({
-        make_pca_plots(simulations()[[vals[2]]], which = sim)},
+        make_pca_plots(simulations()[[vals[2]]], which = sim, download=F)},
         session = session)
     }else{
       shiny::showNotification("No Simulations Found", duration = NULL)
@@ -526,12 +531,12 @@ function(session, input, output) {
                        format(Sys.time(), "%Y%m%d%H%M%S")),
     content = function(file){
       plots <-list(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
-                            alg = names(MODELS)[which(MODELS %in% input$classifier)])
-                   + theme_MSstats(x.axis.size = 4, y.axis.size = 4,
-                                   margin = 0.5))
+                            alg = names(MODELS)[which(MODELS %in% input$classifier)],
+                            x.axis.size = 4, y.axis.size = 4,margin = 0.5))
       plots <- append(plots, plot_var_imp(data = rv$classification, sample = 'all',
                                           use_h2o = rv$use_h2o, alg = input$classifier,
-                                          prots = 'all'))
+                                          prots = 'all', x.axis.size = 4, 
+                                          y.axis.size = 5,margin = 0.5))
       
       seqs <- seq(4,length(plots), 4)
       library(gridExtra)

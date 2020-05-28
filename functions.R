@@ -95,7 +95,22 @@ h2o_config <- function(){
 #' @param y.axis.size A numeric value for size for the elements on the y-axis
 #' @param legend.size A numeric value fot the size of the legend
 theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10, 
-                          legend.size = 11, margin = 0.5, leg.dir="horizontal"){
+                          legend.size = 11, margin = 0.5, leg.dir="horizontal",
+                          download = F,...){
+  
+  dots <- list(...)
+  x.axis.size <- ifelse(is.null(dots$x.axis.size), x.axis.size,
+                        dots$x.axis.size)
+  
+  y.axis.size <- ifelse(is.null(dots$y.axis.size), y.axis.size,
+                        dots$y.axis.size)
+  
+  legend.size <- ifelse(is.null(dots$legend.size), legend.size,
+                        dots$legend.size)
+  leg.dir <- ifelse(is.null(dots$leg.dir), leg.dir,
+                    dots$leg.dir)
+  download <- ifelse(is.null(dots$download), download,
+                     dots$download)
   
   th <- ggplot2::theme(panel.background = element_rect(fill = "white", 
                                                        colour = "black"),
@@ -120,9 +135,13 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10,
                        legend.direction = leg.dir,
                        legend.text = element_text(size = legend.size), 
                        legend.title = element_blank(),
-                       plot.margin = unit(rep(margin,4), "cm"),
-                       legend.position=c(1, 1.05),
-                       legend.justification="right")
+                       legend.position = "top",
+                       plot.margin = unit(rep(margin,4), "cm"))
+  
+  if(!download)
+    th <- th + ggplot2::theme(legend.position=c(1, 1.05),
+                             legend.justification="right")
+  
   return(th)
 }
 
@@ -134,7 +153,7 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10,
 #' @param use_h2o A logical inputs which detemines if h2o was used for classification
 #' @param alg A character vector detemining the name of the classifier used
 #' @return A ggplot2 object
-plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
+plot_acc <- function(data, use_h2o, alg = NA, session = NULL, ...){
   if(use_h2o){
     #check if required data exists
     shiny::validate(shiny::need(data$models, "No Models Run Yet"))
@@ -189,7 +208,7 @@ plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
          subtitle = sprintf("Optimum accuracy achieved when sample size per group is : %s",
                             optimal_sample_size))+
     ylim(y_lim)+
-    theme_MSstats()+
+    theme_MSstats(...)+
     theme(plot.subtitle = element_text(face = "italic", color = "red"))
   
   return(p)
@@ -205,7 +224,8 @@ plot_acc <- function(data, use_h2o, alg = NA, session = NULL){
 #' @param use_h2o A logical input to extract h2o based data model
 #' @param prots Number of proteins to plots, takes "all" to select all proteins
 #' @return A ggplot2 object
-plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10){
+plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10,
+                         ...){
   if(use_h2o){
     #identify number of proteins if complete variable imporatnaces are requested
     if(prots == "all"){
@@ -267,13 +287,13 @@ plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10
     as.data.table()
   
   g <- lapply(dt[,unique(sample_size)], function(x){
-    ggplot(data = head(dt[sample_size == x], prots),
-           aes(variable, relative_importance))+
+    dat <- dt[sample_size == x]
+    ggplot(data = dat, aes(variable, relative_importance))+
       geom_col()+
       labs(x = "Protein", y = "Relative Importance", title = x)+
       scale_x_discrete(breaks = dt$variable,
                        labels = gsub("_.*","",as.character(dt$variable)))+
-      theme_MSstats()+
+      theme_MSstats(...)+
       coord_flip()
   })
   names(g) <- dt[,unique(sample_size)]
@@ -286,8 +306,7 @@ plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10
 #' as a scatter plot with trendline overlayed
 #' @param data A dataframe containing the output from the function `estimateVar()`
 #' @return A ggplot2 object 
-meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size = 1, 
-                        xlimUp = 30, ylimUp = 3){
+meanSDplot <- function (data, smoother_size = 1, xlimUp = 30, ylimUp = 3){
   
   plotdata <- data.table(mean = as.vector(data$mu), sd = as.vector(data$sigma))
   plot.lowess <- lowess(cbind(plotdata$mean, plotdata$sd))
@@ -303,8 +322,7 @@ meanSDplot <- function (data, x.axis.size = 10, y.axis.size = 10, smoother_size 
          y = "Standard deviation per condition") +
     scale_y_continuous(expand = c(0,0), limits = c(0, ylimUp)) +
     scale_x_continuous(expand = c(0,0), limits = c(0, xlimUp)) +
-    theme_MSstats()+
-    theme(legend.position = "none")
+    theme_MSstats(legend.position = "none")
 }
 
 
@@ -469,14 +487,15 @@ format_summary_table <- function(data = NULL){
 #' @param width Page width parameter for the pdf
 #' @param height Page height parameter for the pdf
 #' @session A session object for the shiny implementation
-make_pca_plots <- function(simulations, which = "all", address = NA,
-                           width = 3, height = 3, dot_size = 3, session = NULL){
+make_pca_plots <- function(simulations, which = "all", address = NA, ...){
+  
+  dots <- list(...)
   pc_plot <- list()
   if(which %in% c("all", "allonly")){
     iter <- length(simulations$simulation_train_Xs)+1
     pr_comp <- do_prcomp(sim = simulations)
     pc_plot[[iter]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var,
-                                dot_size = dot_size)
+                                ...)
   }
   
   if(grep("simulation", which) | which == "all"){
@@ -486,8 +505,8 @@ make_pca_plots <- function(simulations, which = "all", address = NA,
     for(i in iters){
       pr_comp <- do_prcomp(sim = simulations$simulation_train_Xs[[i]],
                            sim_y = simulations$simulation_train_Ys[[i]])
-      pc_plot[[i]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var,
-                               dot_size = dot_size)
+      pc_plot[[i]] <- pca_plot(data = pr_comp$pc.result, exp_var = pr_comp$exp.var
+                               ,...)
     }
   }else{
     stop(Sys.time()," Improper which arguement provided")
@@ -513,14 +532,15 @@ make_pca_plots <- function(simulations, which = "all", address = NA,
 #' @param data A data frame containing the Principal components to be plotted
 #' @param exp_car A vector containing numeric values of the expected variance
 #' @dot_size A aesthetics field to be passed to the ggplot2 functions
-pca_plot <- function(data, exp_var, dot_size = 3){
+pca_plot <- function(data, exp_var, ...){
+  dots <- list(...)
   p <- ggplot(data = data,
               aes(x = PC1, y = PC2, color = group)) +
-    geom_point(size = dot_size) + 
-    labs(title = "Input dataset",
+    geom_point(size =  ifelse(is.null(dots$dot_size), 3, dots$dot_size)) + 
+    labs(title = ifelse(is.null(dots$title),"Input dataset", dots$title),
          x = sprintf("PC1 (%s%% explained var.)",exp_var[1]),
          y = sprintf("PC2 (%s%% explained var.)",exp_var[2])) +
-    theme_MSstats()
+    theme_MSstats(...)
   return(p)
 }
 
