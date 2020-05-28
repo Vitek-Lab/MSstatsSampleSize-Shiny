@@ -634,7 +634,6 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                                        valid_samples_per_group = valid_samples_per_grp)
     gc()
   }
-  saveRDS(sim, "h20_test.rds")
   status(detail = "Simulation Complete", value = 0.9, session = session)
   return(sim)
 }

@@ -207,7 +207,7 @@ dashboardPage(
               # define number of proteins to be selected
               sliderInput(inputId = "prot_num", label = "Protein Number",
                            value = 1, max = 1000, min = 1) %>%
-                shinyhelper::helper(type = "markdown", content = "prot_num"),
+                shinyhelper::helper(type = "markdown", content = "prot_prop"),
               # number of sample to be simulated
               textInput(inputId = "n_samp_grp", label = "Samples per group",
                         value = "5,10,20", placeholder = "5,10,20") %>%

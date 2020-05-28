@@ -1,7 +1,6 @@
----
-title: "Untitled"
-author: "Sumedh Sankhe"
-date: "2/7/2020"
-output: pdf_document
----
-Number of times to repeat simulation experiments (Number of simulated datasets). Default is 10.
+<h3>Number of Simulations</h3>
+<hr>
+Number of times to repeat simulation experiments (Number of simulated datasets).
+Default is 10.
+
+<b><i> Note: Currently limited to a minimum of 10 simulations at least</i></b> 
