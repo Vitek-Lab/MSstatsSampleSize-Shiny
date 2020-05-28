@@ -86,10 +86,12 @@ cat("Classifier used to estimate sample size:", params$alg)
 
 \newpage
 # Code to re-run experiment
-#### Formatting of the Output may vary from that of the GUI  
+
 
 ```{r eval=FALSE, include=T}
-sim_data <- MSstatsSampleSize::simulateDataset(data,
+# Code nonn-operational --- in Test
+
+sim_data <- MSstatsSampleSize::simulateDataset(data, /.,m
                                                annotation,
                                                num_simulations = 10,
                                                expected_FC = "data",
@@ -104,6 +106,8 @@ sim_data <- MSstatsSampleSize::simulateDataset(data,
 
 model <- MSstatsSampleSize::designSampleSizeClassification(simulations = sim_data,
                                                            classifier = params$alg)
+
+MSstatsSampleSize::designSampleSizeClassificationPlots(data = model)
 
 ```
 
