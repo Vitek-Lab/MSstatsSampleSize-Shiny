@@ -11,6 +11,13 @@
 #' @return A return object of type as specified by the expression being executed
 #' @references https://github.com/SumedhSankhe/workBench/blob/fd5e808e86e849a933a924735d30348974212fc3/functions.R#L1-L37
 show_faults <- function(..., session = NULL){
+  
+  if ("FILE_CONN" %in% ls(envir = .GlobalEnv)) {
+    log <- get("FILE_CONN", envir = .GlobalEnv)
+  } else {
+    log <- NA
+  }
+  
   #initiate variables to null
   warn <- err <- NULL
   #check for error and warnings with handlers
@@ -23,15 +30,23 @@ show_faults <- function(..., session = NULL){
   })
   #format the error and warnings for shiny/console logging
   if(!is.null(err)){
+    if(!is.na(log)){
+      sink(log, type="message")
+      stop(Sys.time(),": ",detail,"...")
+      sink(type="message")
+    }
     if(!is.null(session)){
       shiny::showNotification(as.character(err), duration = 20, type = "warning",
                               session = session, id = "error") 
       shiny::validate(shiny::need(is.null(err), as.character(err)))
-    } else {
-      stop(Sys.time(),": ",err)
-    }
+    } 
   } else if (!is.null(warn)){
     warn <- paste(unique(warn), collapse = ", ")
+    if(!is.na(log)){
+      sink(log, type="message")
+      warning(Sys.time(),": ",detail,"...")
+      sink(type="message")
+    }
     if(!is.null(session)){
       shiny::showNotification(as.character(warn), duration = 3, type = "warning",
                               session = session) 
@@ -54,7 +69,19 @@ show_faults <- function(..., session = NULL){
 #' @param value A numeric value 0-1 which depicts the progress of the task at hand
 #' @param session A shiny session object
 #' @references https://github.com/SumedhSankhe/workBench/blob/fd5e808e86e849a933a924735d30348974212fc3/functions.R#L51
-status <- function(detail, value, session = NULL){
+status <- function(detail, value=0, session = NULL){
+  
+  if ("FILE_CONN" %in% ls(envir = .GlobalEnv)) {
+    log <- get("FILE_CONN", envir = .GlobalEnv)
+  } else {
+    log <- NA
+  }
+  
+  if(!is.na(log)){
+    sink(log, type="message")
+    message(Sys.time(),": ",detail)
+    sink(type="message")
+  }
   if(!is.null(session))
     shiny::setProgress(value = value, message = "Progress:", detail = detail,
                        session = session)
@@ -111,6 +138,7 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10,
                     dots$leg.dir)
   download <- ifelse(is.null(dots$download), download,
                      dots$download)
+  leg.pos <- ifelse(is.null(dots$leg.pos), "top", dots$leg.pos)
   
   th <- ggplot2::theme(panel.background = element_rect(fill = "white", 
                                                        colour = "black"),
@@ -135,7 +163,7 @@ theme_MSstats <- function(x.axis.size = 10, y.axis.size = 10,
                        legend.direction = leg.dir,
                        legend.text = element_text(size = legend.size), 
                        legend.title = element_blank(),
-                       legend.position = "top",
+                       legend.position = leg.pos,
                        plot.margin = unit(rep(margin,4), "cm"))
   
   if(!download)
@@ -307,7 +335,6 @@ plot_var_imp <- function(data, sample = "all", alg = NA, use_h2o = F, prots = 10
 #' @param data A dataframe containing the output from the function `estimateVar()`
 #' @return A ggplot2 object 
 meanSDplot <- function (data, smoother_size = 1, xlimUp = 30, ylimUp = 3){
-  
   plotdata <- data.table(mean = as.vector(data$mu), sd = as.vector(data$sigma))
   plot.lowess <- lowess(cbind(plotdata$mean, plotdata$sd))
   plot.lowess <- data.table(x = plot.lowess$x, y = plot.lowess$y)
@@ -322,7 +349,7 @@ meanSDplot <- function (data, smoother_size = 1, xlimUp = 30, ylimUp = 3){
          y = "Standard deviation per condition") +
     scale_y_continuous(expand = c(0,0), limits = c(0, ylimUp)) +
     scale_x_continuous(expand = c(0,0), limits = c(0, xlimUp)) +
-    theme_MSstats(legend.position = "none")
+    theme_MSstats(leg.pos = "none", download = T)
 }
 
 
@@ -433,6 +460,9 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
                                      nrow(annot[,.N,Condition])))
   status(detail = "Creating Box Plots", value = 0.95, session = session)
   box_plot <- qc_boxplot(data = data)
+  status(detail = sprintf("Dataset Name: %s", name))
+  status(detail = sprintf("Number of Proteins: %s", nrow(wide[,.N, Protein])))
+  status(detail = sprintf("Number of Groupd: %s", nrow(annot[,.N,Condition])))
   
   return(list("wide_data" = wide, "annot_data" = annot, "box_plot" = box_plot,
               "n_prot" = nrow(wide[,.N, Protein]), "cond_sum_table" = data_summary,
@@ -592,6 +622,9 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
   
   if(exp_fc != "data"){
     status(detail = "Extracting Fold Change Informations", value = 0.15, session = session)
+    status(detail = sprintf("List of differential proteins selected: (%s)", 
+                            list_diff_proteins))
+    
     diff_prots <- unlist(strsplit(list_diff_proteins, ","))
     fc <- exp_fc$`Fold Change Value`
     names(fc) <- exp_fc$orig_group
@@ -600,6 +633,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
     fc <- exp_fc
   }
   status(detail = "Extracting Number of Samples Information", value = 0.2, session = session)
+  status(detail = sprintf("Number of samples per group: (%s)", samples_per_group))
   samp <- as.numeric(unlist(strsplit(samples_per_group, ",")))
   shiny::validate(shiny::need(all(!is.na(samp)),
                               sprintf("Samples Per Group need to be numeric values, Found : %s",
@@ -636,6 +670,192 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
   }
   status(detail = "Simulation Complete", value = 0.9, session = session)
   return(sim)
+}
+
+simulateDataset <- function(data, annotation, num_simulations, expected_FC, 
+                            list_diff_proteins, select_simulated_proteins, 
+                            protein_proportion, protein_number, samples_per_group, 
+                            simulate_validation, valid_samples_per_group){
+  
+  parameters <- estimateVar(data, annotation)
+  data <- data[, annotation$BioReplicate]
+  group <- as.factor(as.character(annotation$Condition))
+  if (num_simulations < 10) {
+    stop("Number of Simulations:", num_simulations,
+         " Please Use more than 10 simulations")
+  }
+  
+  if (!is.element("data", expected_FC) & !is.element(1, expected_FC)) {
+    stop("expected_FC should be `data` or a vector including 1. Please check it.")
+  }
+  if (!is.element("data", expected_FC)) {
+    status(detail = sprintf("Expected Fold Change: %s", 
+                            paste(expected_FC, collapse = ", ")))
+  }
+  if (is.numeric(expected_FC) & is.null(list_diff_proteins)) {
+    stop("list_diff_proteins are required for predefined expected_FC. 
+         Please provide the vector for list_diff_proteins.")
+  }
+  if (!is.element("data", expected_FC)) {
+    status(detail = "List of differential protiens: (%s)", 
+           paste(list_diff_proteins, collapse = ", "))
+  }
+  if (!is.element("proportion", select_simulated_proteins) & 
+      !is.element("number", select_simulated_proteins)) {
+    stop("select_simulated_protein should be either `proportion` or `number`.")
+  }
+  
+  status(detail = sprintf("Select simulated proteins: %s", select_simulated_proteins))
+  
+  if (is.element("proportion", select_simulated_proteins)) {
+    if (is.null(protein_proportion)) {
+      stop("protein_proportion is required for select_simulated_protein =
+           `proportion`. Please provide the value for protein_proportion.")
+    }
+    else if (protein_proportion < 0 | protein_proportion > 1) {
+      stop("protein_proportion should be between 0 and 1. 
+           Please check the value for protein_proportion.")
+    }
+    status(detail = sprintf("Protein Proportion: %s", protein_proportion))
+  }
+  
+  num_total_proteins <- nrow(data)
+  if (is.element("number", select_simulated_proteins)) {
+    if (is.null(protein_number)) {
+      stop("protein_number is required for select_simulated_protein=`number`.
+           Please provide the value for protein_number.")
+    }
+    else if (protein_number < 0 | protein_number > num_total_proteins) {
+      stop(paste0("protein_number should be between 0 and the total number of protein(", 
+                  num_total_proteins, "). Please check the value for protein_number."))
+    }
+  }
+  if (!is.numeric(samples_per_group)) {
+    stop("sample_per_group should be numeric. Please provide the numeric value 
+         for samples_per_group.")
+  }
+  else if (samples_per_group%%1 != 0) {
+    samples_per_group <- round(samples_per_group)
+    status(detail = "NOTE : samples_per_group should be integer. Rounded 
+    samples_per_group will be used.")
+  }
+  status(detail = sprintf("Samples per group: %s", samples_per_group))
+  
+  if (!is.logical(simulate_validation)) {
+    stop("simulate_validation should be logical. Please provide either TRUE or 
+         FALSE for simulate_validation.")
+  }
+  status(detail = sprintf("Simulate Validation data: %s", simulate_validation))
+  if(simulate_validation){
+    if(is.null(valid_samples_per_group) | !is.numeric(valid_samples_per_group)){
+      stop("valid_samples_per_group is required for simulate_validation=TRUE. 
+         Please provide the numeric value for valid_samples_per_group.")
+    }
+    status(detail = sprintf("Validation Samples per group: %s",
+                            valid_samples_per_group))
+  }
+  
+  status(detail = "Preparing simulation...")
+  mu <- parameters$mu
+  sigma <- parameters$sigma
+  promean <- parameters$promean
+  proteins <- parameters$protein
+  if (is.element("data", expected_FC)) {
+    sim_mu <- mu
+    sim_sigma <- sigma
+  }
+  else {
+    sim_mu <- mu
+    sim_sigma <- sigma
+    baseline <- names(expected_FC)[expected_FC == 1]
+    otherlines <- names(expected_FC)[expected_FC != 1]
+    for (i in seq_along(otherlines)) {
+      sim_mu[rownames(sim_mu) %in% list_diff_proteins, 
+             otherlines[i]] <- sim_mu[rownames(sim_mu) %in% 
+                                        list_diff_proteins, baseline] * expected_FC[otherlines[i]]
+      sim_mu[!rownames(sim_mu) %in% list_diff_proteins, 
+             otherlines[i]] <- sim_mu[!rownames(sim_mu) %in% 
+                                        list_diff_proteins, baseline]
+    }
+  }
+  ngroup <- length(unique(group))
+  num_samples <- rep(samples_per_group, ngroup)
+  names(num_samples) <- unique(group)
+  train_size <- samples_per_group * ngroup
+  status(detail = sprintf("Size of training data to simulate: %s", train_size))
+  
+  if (select_simulated_proteins == "proportion") {
+    nproteins <- nrow(mu)
+    protein_num <- round(nproteins * protein_proportion)
+  }
+  else {
+    protein_num <- protein_number
+  }
+  selectedPros <- order(promean, decreasing = TRUE)[1:protein_num]
+  mu_2 <- mu[selectedPros, ]
+  sigma_2 <- sigma[selectedPros, ]
+  if (simulate_validation) {
+    valid <- sample_simulation(m = valid_samples_per_group, 
+                               mu = mu_2, sigma = sigma_2)
+    valid_X <- as.data.frame(valid$X)
+    valid_Y <- as.factor(valid$Y)
+  }
+  else {
+    valid_X <- as.data.frame(apply(data[selectedPros, ], 
+                                   1, function(x) random_imputation(x)))
+    valid_Y <- as.factor(group)
+  }
+  status(detail = sprintf("Number of proteins to simulated: %s", protein_num))
+  status(detail = "Start to run the simulation...")
+  simulation_train_Xs <- list()
+  simulation_train_Ys <- list()
+  for (i in seq_len(num_simulations)) {
+    status(detail = sprintf("Simulation: %s", i))
+    train <- sample_simulation(m = samples_per_group, mu = mu_2, 
+                               sigma = sigma_2)
+    X <- as.data.frame(train$X)
+    Y <- as.factor(train$Y)
+    simulation_train_Xs[[paste("Simulation", i, sep = "")]] <- X
+    simulation_train_Ys[[paste("Simulation", i, sep = "")]] <- Y
+  }
+  #status(detail = "Simulation completed.")
+  return(list(num_proteins = protein_num, num_samples = num_samples, 
+              simulation_train_Xs = simulation_train_Xs, simulation_train_Ys = simulation_train_Ys, 
+              input_X = t(data), input_Y = group, valid_X = valid_X, 
+              valid_Y = valid_Y))
+}
+
+random_imputation <- function(data){
+  missing <- is.na(data)
+  n.missing <- sum(missing)
+  data.obs <- data[!missing]
+  imputed <- data
+  imputed[missing] <- sample(data.obs, n.missing, replace = TRUE)
+  return(imputed)
+}
+
+sample_simulation <- function(m,mu,sigma){
+  nproteins <- nrow(mu)
+  ngroup <- ncol(mu)
+  sigma <- sigma[, colnames(mu)]
+  samplesize <- rep(m, ngroup)
+  sim_matrix <- matrix(rep(0, nproteins * sum(samplesize)), 
+                       ncol = sum(samplesize))
+  for (i in seq_len(nproteins)) {
+    index <- 1
+    for (j in seq_len(ngroup)) {
+      sim_matrix[i, index:(index + samplesize[j] - 1)] <- rnorm(samplesize[j], 
+                                                                mu[i, j], sigma[i, j])
+      index <- index + samplesize[j]
+    }
+  }
+  sim_matrix <- t(sim_matrix)
+  colnames(sim_matrix) <- rownames(mu)
+  group <- rep(colnames(mu), times = samplesize)
+  index <- sample(length(group), length(group))
+  sim_matrix <- sim_matrix[index, ]
+  group <- group[index]
+  return(list(X = sim_matrix, Y = as.factor(group)))
 }
 
 #### Classification #####
