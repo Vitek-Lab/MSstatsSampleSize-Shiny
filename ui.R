@@ -160,8 +160,8 @@ dashboardPage(
                                   label = "Set Seed")),
           column(1, numericInput(inputId = "seed",
                                  label="Value", value=10,
-                                 step = 1)),
-          column(1, actionButton(inputId = 'debug', label="debug"))
+                                  step = 1))
+          # column(1, actionButton(inputId = 'debug', label="debug"))
         ),
         #### File Input to upload a simulation parameter csv ####
         # fileInput(input = "param_input", label = "Upload Parameters in specified format",
@@ -207,7 +207,7 @@ dashboardPage(
               # define number of proteins to be selected
               sliderInput(inputId = "prot_num", label = "Protein Number",
                            value = 1, max = 1000, min = 1) %>%
-                shinyhelper::helper(type = "markdown", content = "prot_prop"),
+                shinyhelper::helper(type = "markdown", content = "prot_num"),
               # number of sample to be simulated
               textInput(inputId = "n_samp_grp", label = "Samples per group",
                         value = "5,10,20", placeholder = "5,10,20") %>%

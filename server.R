@@ -9,6 +9,8 @@ function(session, input, output) {
     try({
       h2o::h2o.shutdown(prompt = F)
       }, silent = T)
+    status("Shutting Down Application")
+    close(FILE_CONN)
   })
   
   # List of reactive values

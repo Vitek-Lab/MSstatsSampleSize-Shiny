@@ -20,7 +20,8 @@ without experience with R/programming to utilize the functions from MSstatsSampl
 
 ## Get Started
 
-Begin by importing your dataset from the *Import Data* submenu in the sidebar. 
+Begin by importing your dataset from the <b><i>Import Data</i></b> submenu in the sidebar or
+by simply click the <b><i>Start</i></b> button down below.  
 Accepted data format includes.  
 * Protein abundance/summarised spectral counts
 * Corresponding sample annotation file in a delimiter-separated format.  
