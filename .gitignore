@@ -2,7 +2,12 @@
 .Rhistory
 .RData
 .Ruserdata
+*.rds
+-logs/
 *.log
-.DS_Store
-*.Rproj
-sessionInfo.txt
+*.1
+*.3
+*.2
+*.pdf
+*.dcf
+*.txt
