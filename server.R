@@ -207,10 +207,10 @@ function(session, input, output) {
       if(input$set_seed){
         rv$seed <- input$seed
       }
-      
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
+                      est_var = data()$est_var,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
                       list_diff_proteins = input$diff_prot,

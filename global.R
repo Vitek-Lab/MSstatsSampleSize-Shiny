@@ -5,7 +5,6 @@ suppressMessages({
   library(ggplot2)
   library(data.table)
   library(dplyr)
-  library(MSstatsSampleSize)
   #### Caret package dependencies ####
   library(e1071)
   library(kernlab)
