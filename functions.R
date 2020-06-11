@@ -15,7 +15,14 @@ show_faults <- function(..., session = NULL){
   if ("FILE_CONN" %in% ls(envir = .GlobalEnv)) {
     log <- get("FILE_CONN", envir = .GlobalEnv)
   } else {
-    log <- NA
+    LOG_DIR <- file.path(getwd(),'logs')
+    dir.create(LOG_DIR, showWarnings = F)
+    LOG_FILE <- sprintf("Auto_Generate_Log_%s.Rout", 
+                        format(Sys.time(),"%Y%m%d%H%M%S"))
+    LOG_FILE <<- file.path(LOG_DIR,LOG_FILE)
+    FILE_CONN <<- file(LOG_FILE, open='wt')
+    writeLines(capture.output(sessionInfo()), FILE_CONN)
+    writeLines("\n\n ############## LOG ############# \n\n", FILE_CONN)
   }
   
   #initiate variables to null

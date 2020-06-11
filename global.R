@@ -2,9 +2,11 @@ suppressMessages({
   library(shiny)
   library(shinydashboard)
   library(shinyWidgets)
+  library(shinycssloaders)
   library(ggplot2)
   library(data.table)
   library(dplyr)
+  library(MSstatsSampleSize)
   #### Caret package dependencies ####
   library(e1071)
   library(kernlab)
@@ -17,7 +19,7 @@ source('functions.R')
 #### logging file ####
 LOG_DIR <- file.path(getwd(),'logs')
 dir.create(LOG_DIR, showWarnings = F)
-LOG_FILE <- sprintf("MSstats_SS_%s.Rout", 
+LOG_FILE <- sprintf("MSstats_SS_%s.Rout",
                     format(Sys.time(),"%Y%m%d%H%M%S"))
 LOG_FILE <- file.path(LOG_DIR,LOG_FILE)
 FILE_CONN <- file(LOG_FILE, open='wt')

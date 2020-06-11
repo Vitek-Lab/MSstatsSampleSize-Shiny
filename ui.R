@@ -109,19 +109,24 @@ dashboardPage(
                                        # Data table output for summary table
                                        box(title = "Summary", solidHeader = T,
                                            status = "primary", width = 12,
-                                           DT::dataTableOutput("sum_table"))),
+                                           withSpinner(DT::dataTableOutput(
+                                             "sum_table"), 
+                                             proxy.height = "100px"))),
                               br(),
                               # Data table output for condition summary
                               fluidRow(width = 12,
                                        box(title = "Condition Summary", solidHeader = T,
                                            status = "primary", width = 12,
-                                           DT::dataTableOutput("cond_sum_table"))
+                                           withSpinner(DT::dataTableOutput(
+                                             "cond_sum_table"),
+                                             proxy.height = "100px"))
                               )
                        ),
                        column(width = 6,# heatmap
                               box(title = "Mean-Variance Plot", solidHeader = T,
                                   status = "primary", width = 12,
-                                  plotOutput("mean_sd_plot")
+                                  withSpinner(plotOutput("mean_sd_plot"),
+                                              proxy.height = "200px")
                               ))
                      ),
                      br(),
@@ -130,7 +135,7 @@ dashboardPage(
                        # Box plot 
                        box(title = "QC Box Plot", solidHeader = T, status = "primary",
                            width = 12,
-                           plotly::plotlyOutput("global_boxplot")
+                           withSpinner(plotly::plotlyOutput("global_boxplot"))
                        )
                      )
                    )
@@ -250,7 +255,7 @@ dashboardPage(
                                                            width = '150px')))
 
               ),
-              plotOutput("pca_plot")
+              withSpinner(plotOutput("pca_plot"))
           )
         )
       ),
@@ -367,7 +372,7 @@ dashboardPage(
         fluidRow(
           ##### Accuracy Box ####
           box(width = 6, title = "Accuracy", status = "info", solidHeader = T,
-              plotOutput(outputId = 'acc_plot'),
+              withSpinner(plotOutput(outputId = 'acc_plot')),
               verbatimTextOutput("default", placeholder = F)
           ),
           ##### Protein Importance Box ####
@@ -385,7 +390,7 @@ dashboardPage(
                                                icon = icon("arrow-right"), 
                                                style = "margin-top: 25px;"))
               ),
-              plotOutput('importance_plot')
+              withSpinner(plotOutput('importance_plot'))
           )
         )
       )

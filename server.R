@@ -11,6 +11,7 @@ function(session, input, output) {
       }, silent = T)
     status("Shutting Down Application")
     close(FILE_CONN)
+    stopApp()
   })
   
   # List of reactive values
@@ -26,14 +27,15 @@ function(session, input, output) {
   #### Toggle control for sidebar ####
   # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
-    shinyjs::toggleElement(id = "standard_count",
+    shinyjs::toggleElement(id = "standard_count", anim = T, animType = "fade",
                            condition = input$data_format == "standard")
-    shinyjs::toggleElement(id = "standard_annot",
+    shinyjs::toggleElement(id = "standard_annot", anim = T, animType = "fade",
                            condition = input$data_format == "standard")
   })
 
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
+    
     withProgress({
       data <- show_faults(
         expr = format_data(format = input$data_format,
@@ -97,6 +99,7 @@ function(session, input, output) {
   }, ignoreInit = F)
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
+    shiny::need(!is.null(data()), "Data Processing")
     updateTabsetPanel(session = session, "myNavBar", selected = "Explore Data")
   })
   #### Toggle control for simulate data tab ####
