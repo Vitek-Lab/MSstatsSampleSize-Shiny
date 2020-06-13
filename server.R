@@ -35,7 +35,7 @@ function(session, input, output) {
 
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
-    sim_choices <<-0
+    SIM_CHOICES <<-0
     rv$seed <- -1
     rv$use_h2o <- F
     rv$classification <- NULL
@@ -45,7 +45,8 @@ function(session, input, output) {
                       "fwd","back","download_pca", "run_model")
     lapply(disable_btns, shinyjs::disable)
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
-                      choices = sim_choices)
+                      choices = SIM_CHOICES)
+    output$default <- renderText("")
     
     withProgress({
       data <- show_faults(
@@ -200,7 +201,6 @@ function(session, input, output) {
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
-    #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
       exp_fc <- ifelse(input$exp_fc, 'data', '')
       if(exp_fc == ''){
@@ -249,33 +249,33 @@ function(session, input, output) {
     
     validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     sc <- sprintf("Simulation %s", seq(1, input$n_sim))
-    sim_choices <<- do.call('c',lapply(sc, function(x){
+    SIM_CHOICES <<- do.call('c',lapply(sc, function(x){
       sprintf("%s Sample Size %s", x,
               as.numeric(unlist(strsplit(input$n_samp_grp, ','))))
       }))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
-                      choices = sim_choices)
+                      choices = SIM_CHOICES)
   })
   
   #### Backend for previous and next buttons ####
   observeEvent(input$back, {
-    curr <- which(sim_choices == input$simulations)
+    curr <- which(SIM_CHOICES == input$simulations)
     if(curr > 1){
       updateSelectInput(session = session, "simulations",
-                        choices = sim_choices, selected = sim_choices[curr - 1])
+                        choices = SIM_CHOICES, selected = SIM_CHOICES[curr - 1])
     }
   })
   
   observeEvent(input$fwd,{
-    curr <- which(sim_choices == input$simulations)
-    if(curr >= 1 && curr <= length(sim_choices)-1){
+    curr <- which(SIM_CHOICES == input$simulations)
+    if(curr >= 1 && curr <= length(SIM_CHOICES)-1){
       updateSelectInput(session = session, "simulations",
-                        choices = sim_choices, selected = sim_choices[curr + 1])
+                        choices = SIM_CHOICES, selected = SIM_CHOICES[curr + 1])
     }
   })
   
   # observeEvent(input$debug,{
-  #   saveRDS(list(sim = simulations(), choices = sim_choices),"debug.rds")
+  #   saveRDS(list(sim = simulations(), choices = SIM_CHOICES),"debug.rds")
   # })
   
   #### Backend for download all plots ####
@@ -286,20 +286,20 @@ function(session, input, output) {
         p <- list()
         library(gridExtra)
         pdf(file = file)
-        for(i in seq_along(sim_choices)){
-          status(sprintf("Plotting %s plot", i), value = i/length(sim_choices), session = session)
-          vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
+        for(i in seq_along(SIM_CHOICES)){
+          status(sprintf("Plotting %s plot", i), value = i/length(SIM_CHOICES), session = session)
+          vals <- unlist(stringr::str_extract_all(SIM_CHOICES[i],'\\d+'))
           sim <- sprintf("simulation%s",vals[1])
           p <- append(p, list(make_pca_plots(simulations()[[vals[2]]], 
                                              which = sim, dot_size=1,
-                                             title = sim_choices[i],
+                                             title = SIM_CHOICES[i],
                                              x.axis.size = 4, y.axis.size = 4,
                                              margin = 0.2, legend.size = 7,
                                              download = T)
                               )
                       )
           
-          if(length(p)== 4 || i == max(seq_along(sim_choices))){
+          if(length(p)== 4 || i == max(seq_along(SIM_CHOICES))){
             do.call("grid.arrange", c(p, ncol=2, nrow=2))
             p <- list()
           }
@@ -313,7 +313,7 @@ function(session, input, output) {
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
     if(!is.null(input$simulations)){
-      validate(need(sim_choices !=0, 'No Simulations Run on Data'))
+      validate(need(SIM_CHOICES !=0, 'No Simulations run yet'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
       sim <- sprintf("simulation%s",vals[1])
       show_faults({
@@ -511,14 +511,14 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    validate(need(sim_choices != 0, "No Simulations Runs"),
+    validate(need(SIM_CHOICES != 0, "No Simulations run yet, Click 'Simulate'"),
              need(rv$classification,
                   "No Trained Models Found, Click 'Run Model'"),
              need(CURRMODEL == input$classifier,
                   sprintf("No Trained Models Found for %s, Click 'Run Model'", 
                           input$classifier)))
     if(rv$use_h2o)
-      validate(need(sim_choices !=0, "No Simulations Run"),
+      validate(need(SIM_CHOICES !=0, "No Simulations run yet, Click 'Simulate'"),
                need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                          alg = names(MODELS)[which(MODELS %in% input$classifier)],

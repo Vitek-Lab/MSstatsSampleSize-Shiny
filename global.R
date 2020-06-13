@@ -58,6 +58,7 @@ LINK <- c("family_default", "identity", "logit", "log", "inverse", "tweedie",
 B_GROUP <- ""
 TUNING <- c("Use h2o Package", "Parameter Tuning")
 CURRMODEL <- ""
+SIM_CHOICES <- 0
 
 CSS_BUTTON <- "margin-top: 25px;
               display: inline-block;
