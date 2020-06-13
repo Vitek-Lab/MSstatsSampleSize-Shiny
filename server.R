@@ -35,6 +35,17 @@ function(session, input, output) {
 
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
+    sim_choices <<-0
+    rv$seed <- -1
+    rv$use_h2o <- F
+    rv$classification <- NULL
+    
+    disable_btns <- c("download_plots", "back_varimp", "fwd_varimp", 
+                      "generate_report", "run_model","nav_to_exp",
+                      "fwd","back","download_pca", "run_model")
+    lapply(disable_btns, shinyjs::disable)
+    updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
+                      choices = sim_choices)
     
     withProgress({
       data <- show_faults(
@@ -89,14 +100,6 @@ function(session, input, output) {
     updateTabItems(session = session, inputId = "tabs", "explore_simulated")
   })
   
-  observeEvent(input$set_seed,{
-    if(input$set_seed == T){
-      rv$seed <- 1212
-    }else{
-      rm(.Random.seed, envir = globalenv())
-      rv$seed <- -1
-    }
-  }, ignoreInit = F)
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
     shiny::need(!is.null(data()), "Data Processing")
@@ -229,17 +232,21 @@ function(session, input, output) {
       )
       },
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
-    shinyjs::enable("run_model")
-    shinyjs::enable("nav_to_exp")
-    shinyjs::enable(id = "fwd")
-    shinyjs::enable(id = "back")
-    shinyjs::enable(id = "download_pca")
-    shinyjs::enable(id = "run_model")
+    
+    enable_btns <- c("run_model","nav_to_exp","fwd","back","download_pca",
+                     "run_model")
+    lapply(enable_btns, shinyjs::enable)
+    
     return(data)
   })
   
   #### Toggle Switch for previous/next/download buttons, updates select input ####
   observeEvent(input$simulate, {
+    rv$classification <- NULL
+    disable_btns <- c("download_plots", "back_varimp", "fwd_varimp", 
+                      "generate_report", "run_model")
+    lapply(disable_btns, shinyjs::disable)
+    
     validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     sc <- sprintf("Simulation %s", seq(1, input$n_sim))
     sim_choices <<- do.call('c',lapply(sc, function(x){
@@ -306,7 +313,7 @@ function(session, input, output) {
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
     if(!is.null(input$simulations)){
-      validate(need(nchar(input$simulations) != 0, 'No Simulations Run yet'))
+      validate(need(sim_choices !=0, 'No Simulations Run on Data'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
       sim <- sprintf("simulation%s",vals[1])
       show_faults({
@@ -504,13 +511,15 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification,
-                                "No Trained Models Found, Click 'Run Model'"),
-                    shiny::need(CURRMODEL == input$classifier,
-                                sprintf("No Trained Models Found for %s, Click 'Run Model'", 
-                                        input$classifier)))
+    validate(need(sim_choices != 0, "No Simulations Runs"),
+             need(rv$classification,
+                  "No Trained Models Found, Click 'Run Model'"),
+             need(CURRMODEL == input$classifier,
+                  sprintf("No Trained Models Found for %s, Click 'Run Model'", 
+                          input$classifier)))
     if(rv$use_h2o)
-      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
+      validate(need(sim_choices !=0, "No Simulations Run"),
+               need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                          alg = names(MODELS)[which(MODELS %in% input$classifier)],
                          session = session),
@@ -518,11 +527,11 @@ function(session, input, output) {
   })
   
   output$importance_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"),
-                    shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
+    validate(need(!is.null(rv$classification), "No Trained Models Found"),
+             need(CURRMODEL == input$classifier, "No Trained Models Found"))
     if(rv$use_h2o)
-      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"),
-                      shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
+      validate(need(!is.null(rv$classification$models), "No Trained Models Found"),
+               need(CURRMODEL == input$classifier, "No Trained Models Found"))
     
     show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
                              alg = input$classifier,use_h2o = rv$use_h2o),
