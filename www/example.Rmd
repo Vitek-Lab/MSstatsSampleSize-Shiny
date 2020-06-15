@@ -1,3 +1,4 @@
+<html>
 <div class = "row">
 <div class = "col-md-6">
 <h3>Protein Abundance File</h3>
@@ -19,3 +20,4 @@
 <img src = an.PNG  height = "350">
 </div>
 </div>
+</html>

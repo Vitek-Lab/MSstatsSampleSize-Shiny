@@ -15,7 +15,14 @@ show_faults <- function(..., session = NULL){
   if ("FILE_CONN" %in% ls(envir = .GlobalEnv)) {
     log <- get("FILE_CONN", envir = .GlobalEnv)
   } else {
-    log <- NA
+    LOG_DIR <- file.path(getwd(),'logs')
+    dir.create(LOG_DIR, showWarnings = F)
+    LOG_FILE <- sprintf("Auto_Generate_Log_%s.Rout", 
+                        format(Sys.time(),"%Y%m%d%H%M%S"))
+    LOG_FILE <<- file.path(LOG_DIR,LOG_FILE)
+    FILE_CONN <<- file(LOG_FILE, open='wt')
+    writeLines(capture.output(sessionInfo()), FILE_CONN)
+    writeLines("\n\n ############## LOG ############# \n\n", FILE_CONN)
   }
   
   #initiate variables to null
@@ -32,11 +39,11 @@ show_faults <- function(..., session = NULL){
   if(!is.null(err)){
     if(!is.na(log)){
       sink(log, type="message")
-      stop(Sys.time(),": ",detail,"...")
+      message(Sys.time(),": ERROR: ",err,"...")
       sink(type="message")
     }
     if(!is.null(session)){
-      shiny::showNotification(as.character(err), duration = 20, type = "warning",
+      shiny::showNotification(as.character(err), duration = 20, type = "error",
                               session = session, id = "error") 
       shiny::validate(shiny::need(is.null(err), as.character(err)))
     } 
@@ -44,7 +51,7 @@ show_faults <- function(..., session = NULL){
     warn <- paste(unique(warn), collapse = ", ")
     if(!is.na(log)){
       sink(log, type="message")
-      warning(Sys.time(),": ",detail,"...")
+      warning(Sys.time(),": WARNING: ",warn,"...")
       sink(type="message")
     }
     if(!is.null(session)){
@@ -434,7 +441,9 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
     stop("Not Defined")
   }
   #get summary about the bioreplicates and runs of the data
-  data_summary <- format_summary_table(data = annot)
+  data_summary <- show_faults({
+    format_summary_table(data = annot)
+  }, session = session)
   
   status(detail = "Stretching the data", value = 0.6, session = session)
   #convert data to the long form
@@ -450,9 +459,12 @@ format_data <- function(format, count = NULL, annot = NULL, session = NULL){
   }else{
     data <- merge(data, annot, by = "BioReplicate") 
   }
-
+  
   status(detail = "Estimating Variance", value = 0.8, session = session)
-  var <- estimateVar(data = wide, annot = annot)
+  show_faults({
+    var <- estimate_var(data = wide, annotation = annot) 
+  }, session = session)
+  
   
   status(detail = "Creating Summary Table", value = 0.9, session = session)
   sum_table <- data.frame(Parameter =  c("Number of Proteins", "Number of Groups"),
@@ -614,7 +626,7 @@ do_prcomp <- function(sim_x, sim_y){
 simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
                           list_diff_proteins, sel_simulated_proteins, 
                           prot_proportion, prot_number, samples_per_group, sim_valid,
-                          valid_samples_per_grp, seed, session = NULL){
+                          valid_samples_per_grp, seed, est_var, session = NULL){
   #check if seed value required
   status(detail = "Setting Up Data Simulation Runs", value = 0.1, session = session)
   if(seed != -1)
@@ -657,6 +669,7 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
     
     sim[[paste(i)]] <- simulateDataset(data = data_mat,
                                        annotation = annot,
+                                       parameters = est_var,
                                        num_simulations = num_simulation,
                                        expected_FC = fc,
                                        list_diff_proteins =  diff_prots,
@@ -672,12 +685,15 @@ simulate_grid <- function(data = NULL, annot = NULL, num_simulation, exp_fc,
   return(sim)
 }
 
-simulateDataset <- function(data, annotation, num_simulations, expected_FC, 
-                            list_diff_proteins, select_simulated_proteins, 
+simulateDataset <- function(data, annotation, parameters=NULL, num_simulations, 
+                            expected_FC, list_diff_proteins, select_simulated_proteins, 
                             protein_proportion, protein_number, samples_per_group, 
                             simulate_validation, valid_samples_per_group){
   
-  parameters <- estimateVar(data, annotation)
+  if(is.null(parameters)){
+    parameters <- estimate_var(data, annotation)
+  }
+  
   data <- data[, annotation$BioReplicate]
   group <- as.factor(as.character(annotation$Condition))
   if (num_simulations < 10) {
@@ -856,6 +872,87 @@ sample_simulation <- function(m,mu,sigma){
   sim_matrix <- sim_matrix[index, ]
   group <- group[index]
   return(list(X = sim_matrix, Y = as.factor(group)))
+}
+
+
+estimate_var <- function (data, annotation) {
+  tryCatch({
+    if('data.table' %in%class(data)){
+      rnames <- data$Protein
+      data <- data[,-1]
+      rownames(data) <- rnames
+    }
+    
+    if (anyDuplicated(colnames(data)) != 0) {
+      stop("Please check the column names of 'data'. There are duplicated 'BioReplicate'.")
+    }
+    if (!all(annotation$BioReplicate %in% colnames(data)) & 
+        nrow(annotation) == ncol(data)) {
+      stop("Please check the annotation file.'BioReplicate' must match with the column names of 'data'.")
+    }
+    if (length(unique(annotation$Condition)) < 2) {
+      stop("Need at least two conditions to do simulation.")
+    }
+    if (any(is.na(annotation$BioReplicate)) | any(is.na(annotation$BioReplicate))) {
+      stop("NA not permitted in 'BioReplicate' or 'Condition' of annotaion.")
+    }
+    
+    data <- as.data.frame.matrix(data)
+    data <- data[, annotation$BioReplicate]
+    group <- as.factor(as.character(annotation$Condition))
+    if (nrow(data) == 0) {
+      stop("Please check the column names of abun and BioReplicate in annotation.")
+    }
+    
+    status(detail = sprintf("Summary : number of samples in the input data = %s",
+                            ncol(data)))
+    
+    status(detail = "Preparing variance analysis...")
+    groups <- as.character(unique(group))
+    ngroup <- length(groups)
+    nproteins <- nrow(data)
+    GroupVar <- matrix(rep(NA, nproteins * ngroup), ncol = ngroup)
+    GroupMean <- matrix(rep(NA, nproteins * ngroup), ncol = ngroup)
+    SampleMean <- NULL
+    Proteins <- NULL
+    Models <- list()
+    count = 0
+    for (i in seq_len(nrow(data))) {
+      sub <- data.frame(ABUNDANCE = unname(unlist(data[i, 
+                                                       ])), GROUP = factor(group), row.names = NULL)
+      sub <- sub[!is.na(sub$ABUNDANCE), ]
+      df.full <- suppressMessages(try(lm(ABUNDANCE ~ GROUP, 
+                                         data = sub), TRUE))
+      if (!inherits(df.full, "try-error")) {
+        abun <- coef(df.full)
+        if (length(abun) == ngroup) {
+          count <- count + 1
+          var <- anova(df.full)["Residuals", "Mean Sq"]
+          abun[-1] <- abun[1] + abun[-1]
+          names(abun) <- gsub("GROUP", "", names(abun))
+          names(abun)[1] <- setdiff(as.character(groups), 
+                                    names(abun))
+          abun <- abun[groups]
+          Models[[rownames(data)[i]]] <- df.full
+          GroupVar[count, ] <- rep(sqrt(var), times = length(abun))
+          GroupMean[count, ] <- abun
+          SampleMean <- c(SampleMean, mean(sub$ABUNDANCE, 
+                                           na.rm = TRUE))
+          Proteins <- c(Proteins, rownames(data)[i])
+        }
+      }
+    }
+    GroupMean <- GroupMean[1:count, ]
+    GroupMean <- GroupMean[1:count, ]
+    rownames(GroupVar) <- Proteins
+    colnames(GroupVar) <- groups
+    rownames(GroupMean) <- Proteins
+    colnames(GroupMean) <- groups
+    names(SampleMean) <- Proteins
+    status(detail = " Variance analysis completed.")
+  })
+  return(list(model = Models, protein = Proteins, promean = SampleMean, 
+              mu = GroupMean, sigma = GroupVar))
 }
 
 #### Classification #####

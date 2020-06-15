@@ -11,6 +11,7 @@ function(session, input, output) {
       }, silent = T)
     status("Shutting Down Application")
     close(FILE_CONN)
+    stopApp()
   })
   
   # List of reactive values
@@ -26,14 +27,27 @@ function(session, input, output) {
   #### Toggle control for sidebar ####
   # Enable or disable fileInputs based on type of data selected
   observeEvent(input$data_format,{
-    shinyjs::toggleElement(id = "standard_count",
+    shinyjs::toggleElement(id = "standard_count", anim = T, animType = "fade",
                            condition = input$data_format == "standard")
-    shinyjs::toggleElement(id = "standard_annot",
+    shinyjs::toggleElement(id = "standard_annot", anim = T, animType = "fade",
                            condition = input$data_format == "standard")
   })
 
   #### Import data, action click ####
   data <- eventReactive(input$import_data, {
+    SIM_CHOICES <<-0
+    rv$seed <- -1
+    rv$use_h2o <- F
+    rv$classification <- NULL
+    
+    disable_btns <- c("download_plots", "back_varimp", "fwd_varimp", 
+                      "generate_report", "run_model","nav_to_exp",
+                      "fwd","back","download_pca", "run_model")
+    lapply(disable_btns, shinyjs::disable)
+    updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
+                      choices = SIM_CHOICES)
+    output$default <- renderText("")
+    
     withProgress({
       data <- show_faults(
         expr = format_data(format = input$data_format,
@@ -87,16 +101,9 @@ function(session, input, output) {
     updateTabItems(session = session, inputId = "tabs", "explore_simulated")
   })
   
-  observeEvent(input$set_seed,{
-    if(input$set_seed == T){
-      rv$seed <- 1212
-    }else{
-      rm(.Random.seed, envir = globalenv())
-      rv$seed <- -1
-    }
-  }, ignoreInit = F)
   #switches to the data exploration tabs which are populated with the EDA
   observeEvent(input$import_data,{
+    shiny::need(!is.null(data()), "Data Processing")
     updateTabsetPanel(session = session, "myNavBar", selected = "Explore Data")
   })
   #### Toggle control for simulate data tab ####
@@ -194,7 +201,6 @@ function(session, input, output) {
   
   #### Simulate Data Button Click ####
   simulations <- eventReactive(input$simulate,{
-    #validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     withProgress({
       exp_fc <- ifelse(input$exp_fc, 'data', '')
       if(exp_fc == ''){
@@ -207,10 +213,10 @@ function(session, input, output) {
       if(input$set_seed){
         rv$seed <- input$seed
       }
-      
       data <- show_faults({
         simulate_grid(data = data()$wide_data,
                       annot = data()$annot_data,
+                      est_var = data()$est_var,
                       num_simulation = input$n_sim,
                       exp_fc = exp_fc,
                       list_diff_proteins = input$diff_prot,
@@ -226,46 +232,50 @@ function(session, input, output) {
       )
       },
       message = "Progress:", value = 0.2, detail = "Simulating Data...")
-    shinyjs::enable("run_model")
-    shinyjs::enable("nav_to_exp")
-    shinyjs::enable(id = "fwd")
-    shinyjs::enable(id = "back")
-    shinyjs::enable(id = "download_pca")
-    shinyjs::enable(id = "run_model")
+    
+    enable_btns <- c("run_model","nav_to_exp","fwd","back","download_pca",
+                     "run_model")
+    lapply(enable_btns, shinyjs::enable)
+    
     return(data)
   })
   
   #### Toggle Switch for previous/next/download buttons, updates select input ####
   observeEvent(input$simulate, {
+    rv$classification <- NULL
+    disable_btns <- c("download_plots", "back_varimp", "fwd_varimp", 
+                      "generate_report", "run_model")
+    lapply(disable_btns, shinyjs::disable)
+    
     validate(need(nrow(data()$wide_data) != 0, "Import Data using the Import Data Menu"))
     sc <- sprintf("Simulation %s", seq(1, input$n_sim))
-    sim_choices <<- do.call('c',lapply(sc, function(x){
+    SIM_CHOICES <<- do.call('c',lapply(sc, function(x){
       sprintf("%s Sample Size %s", x,
               as.numeric(unlist(strsplit(input$n_samp_grp, ','))))
       }))
     updateSelectInput(session = session, inputId ="simulations", label = "Simulations",
-                      choices = sim_choices)
+                      choices = SIM_CHOICES)
   })
   
   #### Backend for previous and next buttons ####
   observeEvent(input$back, {
-    curr <- which(sim_choices == input$simulations)
+    curr <- which(SIM_CHOICES == input$simulations)
     if(curr > 1){
       updateSelectInput(session = session, "simulations",
-                        choices = sim_choices, selected = sim_choices[curr - 1])
+                        choices = SIM_CHOICES, selected = SIM_CHOICES[curr - 1])
     }
   })
   
   observeEvent(input$fwd,{
-    curr <- which(sim_choices == input$simulations)
-    if(curr >= 1 && curr <= length(sim_choices)-1){
+    curr <- which(SIM_CHOICES == input$simulations)
+    if(curr >= 1 && curr <= length(SIM_CHOICES)-1){
       updateSelectInput(session = session, "simulations",
-                        choices = sim_choices, selected = sim_choices[curr + 1])
+                        choices = SIM_CHOICES, selected = SIM_CHOICES[curr + 1])
     }
   })
   
   # observeEvent(input$debug,{
-  #   saveRDS(list(sim = simulations(), choices = sim_choices),"debug.rds")
+  #   saveRDS(list(sim = simulations(), choices = SIM_CHOICES),"debug.rds")
   # })
   
   #### Backend for download all plots ####
@@ -276,20 +286,20 @@ function(session, input, output) {
         p <- list()
         library(gridExtra)
         pdf(file = file)
-        for(i in seq_along(sim_choices)){
-          status(sprintf("Plotting %s plot", i), value = i/length(sim_choices), session = session)
-          vals <- unlist(stringr::str_extract_all(sim_choices[i],'\\d+'))
+        for(i in seq_along(SIM_CHOICES)){
+          status(sprintf("Plotting %s plot", i), value = i/length(SIM_CHOICES), session = session)
+          vals <- unlist(stringr::str_extract_all(SIM_CHOICES[i],'\\d+'))
           sim <- sprintf("simulation%s",vals[1])
           p <- append(p, list(make_pca_plots(simulations()[[vals[2]]], 
                                              which = sim, dot_size=1,
-                                             title = sim_choices[i],
+                                             title = SIM_CHOICES[i],
                                              x.axis.size = 4, y.axis.size = 4,
                                              margin = 0.2, legend.size = 7,
                                              download = T)
                               )
                       )
           
-          if(length(p)== 4 || i == max(seq_along(sim_choices))){
+          if(length(p)== 4 || i == max(seq_along(SIM_CHOICES))){
             do.call("grid.arrange", c(p, ncol=2, nrow=2))
             p <- list()
           }
@@ -303,7 +313,7 @@ function(session, input, output) {
   #### Render PCA plots for selected simulations ####
   output$pca_plot <- renderPlot(
     if(!is.null(input$simulations)){
-      validate(need(nchar(input$simulations) != 0, 'No Simulations Run yet'))
+      validate(need(SIM_CHOICES !=0, 'No Simulations run yet'))
       vals <- unlist(stringr::str_extract_all(input$simulations,'\\d+'))
       sim <- sprintf("simulation%s",vals[1])
       show_faults({
@@ -501,13 +511,15 @@ function(session, input, output) {
   
   ##### Render Model training plots ####
   output$acc_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification,
-                                "No Trained Models Found, Click 'Run Model'"),
-                    shiny::need(CURRMODEL == input$classifier,
-                                sprintf("No Trained Models Found for %s, Click 'Run Model'", 
-                                        input$classifier)))
+    validate(need(SIM_CHOICES != 0, "No Simulations run yet, Click 'Simulate'"),
+             need(rv$classification,
+                  "No Trained Models Found, Click 'Run Model'"),
+             need(CURRMODEL == input$classifier,
+                  sprintf("No Trained Models Found for %s, Click 'Run Model'", 
+                          input$classifier)))
     if(rv$use_h2o)
-      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"))
+      validate(need(SIM_CHOICES !=0, "No Simulations run yet, Click 'Simulate'"),
+               need(rv$classification$models, "No Trained Models Found"))
     show_faults(plot_acc(data = rv$classification, use_h2o = rv$use_h2o,
                          alg = names(MODELS)[which(MODELS %in% input$classifier)],
                          session = session),
@@ -515,11 +527,11 @@ function(session, input, output) {
   })
   
   output$importance_plot <- renderPlot({
-    shiny::validate(shiny::need(rv$classification, "No Trained Models Found"),
-                    shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
+    validate(need(!is.null(rv$classification), "No Trained Models Found"),
+             need(CURRMODEL == input$classifier, "No Trained Models Found"))
     if(rv$use_h2o)
-      shiny::validate(shiny::need(rv$classification$models, "No Trained Models Found"),
-                      shiny::need(CURRMODEL == input$classifier, "No Trained Models Found"))
+      validate(need(!is.null(rv$classification$models), "No Trained Models Found"),
+               need(CURRMODEL == input$classifier, "No Trained Models Found"))
     
     show_faults(plot_var_imp(data = rv$classification, sample = input$s_size,
                              alg = input$classifier,use_h2o = rv$use_h2o),
